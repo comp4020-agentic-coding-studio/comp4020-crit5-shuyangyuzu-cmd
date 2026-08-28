@@ -288,7 +288,7 @@ export function tick(state: GameState, elapsedMs: number): GameState {
   }
 
   if (dueNpc) {
-    const price = priceAtTime(lot, dueAt);
+    const price = Math.round(priceAtTime(lot, dueAt));
     return settleSale(state, dueNpc, price, elapsedMs);
   }
 
@@ -311,7 +311,7 @@ export function attemptPlayerClaim(state: GameState, elapsedMs: number): GameSta
 
   const lot = afterNpcCheck.currentLot!;
   const relativeMs = elapsedMs - afterNpcCheck.currentLotStartAt;
-  const price = priceAtTime(lot, relativeMs);
+  const price = Math.round(priceAtTime(lot, relativeMs));
 
   if (price > afterNpcCheck.collectors.player.cash) return afterNpcCheck;
 

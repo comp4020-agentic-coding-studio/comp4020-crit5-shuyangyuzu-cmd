@@ -12,6 +12,14 @@
   box-sizing: border-box;
 }
 
+/* Elements toggled via the `hidden` DOM property must actually disappear —
+   any rule below that sets `display` on the same element would otherwise
+   win over the UA's [hidden] default, since author styles always beat UA
+   styles regardless of selector order or specificity. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -39,6 +47,19 @@ body {
 .topbar {
   padding: 0.75rem 1.25rem;
   border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.topbar nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .wordmark {
@@ -629,6 +650,15 @@ body {
   .hud {
     justify-content: center;
     text-align: center;
+  }
+
+  .topbar nav {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .auctioneer-banner {
+    font-size: 0.75rem;
   }
 
   .rivals-board {
