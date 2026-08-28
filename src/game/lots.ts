@@ -9,10 +9,10 @@ export const SOLD_PAUSE_MS = 3_000;
 export const CEILING_MULTIPLIER = 1.6;
 export const FLOOR_MULTIPLIER = 0.35;
 
-// Four works per artist, shuffled into a single running order. The artist
+// Three works per artist, shuffled into a single running order. The artist
 // assignment and running order are fixed at game start; each lot's price
 // range is computed later, from whatever the market looks like when it comes
-// up, so a mid-game price bump on an artist is visible in their next lot.
+// up, so a mid-game price move on an artist is visible in their next lot.
 export function generateLotBlueprints(state: RngState): { value: LotBlueprint[]; state: RngState } {
   const perArtist = LOT_COUNT / ARTISTS.length;
   const artistSequence = ARTISTS.flatMap((artist) => Array(perArtist).fill(artist));

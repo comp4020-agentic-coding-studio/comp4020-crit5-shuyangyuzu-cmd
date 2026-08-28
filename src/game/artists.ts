@@ -1,16 +1,22 @@
-export type ArtistId = "vantablack" | "halcyon" | "ferrous";
+export type ArtistId = "vangogh" | "monet" | "kandinsky" | "mondrian";
+
+export type ArtistSymbol = "diamond" | "circle" | "triangle" | "square";
 
 export interface Artist {
   id: ArtistId;
   name: string;
   color: string;
-  symbol: "triangle" | "circle" | "square";
+  symbol: ArtistSymbol;
+  initialValue: number;
 }
 
-export const BASE_MARKET_VALUE = 100;
-
+// Four real historical artists, each with its own starting market value and a
+// persistent colour + symbol pair used everywhere the artist appears (artwork
+// frame, market board row, collection tiles) so identity never depends on
+// recognising the generated painting style itself.
 export const ARTISTS: Artist[] = [
-  { id: "vantablack", name: "Nyx Vantablack", color: "#8b5cf6", symbol: "triangle" },
-  { id: "halcyon", name: "Rue Halcyon", color: "#14b8a6", symbol: "circle" },
-  { id: "ferrous", name: "Otto Ferrous", color: "#f97316", symbol: "square" },
+  { id: "vangogh", name: "Vincent van Gogh", color: "#f2b134", symbol: "diamond", initialValue: 80 },
+  { id: "monet", name: "Claude Monet", color: "#4fa3d1", symbol: "circle", initialValue: 65 },
+  { id: "kandinsky", name: "Wassily Kandinsky", color: "#c74fd6", symbol: "triangle", initialValue: 50 },
+  { id: "mondrian", name: "Piet Mondrian", color: "#e6453c", symbol: "square", initialValue: 35 },
 ];

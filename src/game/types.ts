@@ -13,11 +13,15 @@ export interface Collector {
   holdings: Partial<Record<ArtistId, number>>;
 }
 
+export type ArtworkShapeKind = "circle" | "square" | "triangle" | "stroke";
+
 export interface ArtworkShape {
-  kind: "triangle" | "circle" | "square";
+  kind: ArtworkShapeKind;
   x: number;
   y: number;
   size: number;
+  // Only meaningful for "stroke": the long dimension of an elongated rect.
+  length?: number;
   rotation: number;
   opacity: number;
   toneShift: number;
@@ -41,13 +45,20 @@ export interface Lot extends LotBlueprint {
   ceiling: number;
   floor: number;
   durationMs: number;
+  // The artist's market value captured the instant this auction opened —
+  // the reference point PREMIUM/DISCOUNT resolution compares the sale
+  // price against, independent of anything that happens after.
+  preSaleValue: number;
 }
+
+export type SaleKind = "premium" | "discount" | "unsold";
 
 export interface LotOutcome {
   lotIndex: number;
   artistId: ArtistId;
   winner: CollectorId | null;
   price: number;
+  saleKind: SaleKind;
   saleAtMs: number | null;
 }
 

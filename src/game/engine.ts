@@ -1,12 +1,6 @@
 import { ARTISTS } from "./artists";
-import {
-  AUCTION_DURATION_MS,
-  CEILING_MULTIPLIER,
-  FLOOR_MULTIPLIER,
-  SOLD_PAUSE_MS,
-  generateLotBlueprints,
-} from "./lots";
-import { createMarket, portfolioValue, recordSale, type Market } from "./market";
+import { AUCTION_DURATION_MS, CEILING_MULTIPLIER, FLOOR_MULTIPLIER, SOLD_PAUSE_MS, generateLotBlueprints } from "./lots";
+import { createMarket, portfolioValue, resolveSale, resolveUnsold, type Market } from "./market";
 import { computeNpcTrigger, NPC_NAMES } from "./npc";
 import { priceAtTime } from "./pricing";
 import { createRng, nextRange, type RngState } from "./rng";
@@ -23,7 +17,7 @@ import {
   type RankedResult,
 } from "./types";
 
-export const STARTING_CASH = 640;
+export const STARTING_CASH = 500;
 const LOT_PRICE_JITTER: [number, number] = [0.92, 1.08];
 
 export interface GameState {
@@ -53,6 +47,10 @@ function createCollectors(): Record<CollectorId, Collector> {
   return collectors;
 }
 
+// Builds the priced, timed Lot for a blueprint the instant its auction opens,
+// capturing the artist's market value right now as `preSaleValue` — the fixed
+// reference point PREMIUM/DISCOUNT resolution will compare the eventual sale
+// price against, independent of anything that happens later in the auction.
 function startLot(state: GameState, lotIndex: number, elapsedMs: number): GameState {
   if (lotIndex >= state.blueprints.length) {
     return { ...state, phase: "finished", phaseChangedAt: elapsedMs, currentLot: null };
@@ -72,11 +70,13 @@ function startLot(state: GameState, lotIndex: number, elapsedMs: number): GameSt
     ceiling: Math.round(base * CEILING_MULTIPLIER * ceilingJitter.value),
     floor: Math.round(base * FLOOR_MULTIPLIER * floorJitter.value),
     durationMs: AUCTION_DURATION_MS,
+    preSaleValue: base,
   };
 
   const npcTriggers: Partial<Record<NpcId, number | null>> = {};
   for (const npcId of NPC_IDS) {
-    const result = computeNpcTrigger(npcId, lot, state.market, state.collectors[npcId].cash, s);
+    const holdingsCount = state.collectors[npcId].holdings[blueprint.artistId] ?? 0;
+    const result = computeNpcTrigger(npcId, lot, state.market, state.collectors[npcId].cash, holdingsCount, s);
     npcTriggers[npcId] = result.value;
     s = result.state;
   }
@@ -114,14 +114,11 @@ export function createGame(seedValue: number, elapsedMs = 0): GameState {
   return startLot(initial, 0, elapsedMs);
 }
 
-function settleSale(
-  state: GameState,
-  winner: CollectorId,
-  price: number,
-  elapsedMs: number,
-): GameState {
+function settleSale(state: GameState, winner: CollectorId, price: number, elapsedMs: number): GameState {
   const lot = state.currentLot;
   if (!lot) return state;
+
+  const { market: nextMarket, kind } = resolveSale(state.market, lot.artistId, price, lot.preSaleValue);
 
   const buyer = state.collectors[winner];
   const updatedBuyer: Collector = {
@@ -138,12 +135,13 @@ function settleSale(
     artistId: lot.artistId,
     winner,
     price,
+    saleKind: kind,
     saleAtMs: elapsedMs,
   };
 
   return {
     ...state,
-    market: recordSale(state.market, lot.artistId),
+    market: nextMarket,
     collectors: { ...state.collectors, [winner]: updatedBuyer },
     outcomes: [...state.outcomes, outcome],
     phase: "sold-pause",
@@ -154,15 +152,19 @@ function settleSale(
 function settleUnsold(state: GameState, elapsedMs: number): GameState {
   const lot = state.currentLot;
   if (!lot) return state;
+
   const outcome: LotOutcome = {
     lotIndex: lot.index,
     artistId: lot.artistId,
     winner: null,
     price: 0,
+    saleKind: "unsold",
     saleAtMs: elapsedMs,
   };
+
   return {
     ...state,
+    market: resolveUnsold(state.market, lot.artistId),
     outcomes: [...state.outcomes, outcome],
     phase: "sold-pause",
     phaseChangedAt: elapsedMs,
@@ -170,10 +172,11 @@ function settleUnsold(state: GameState, elapsedMs: number): GameState {
 }
 
 // Resolves any claim that has become due by `elapsedMs`: an NPC whose trigger
-// time has passed, or (past the lot's duration) a forced floor-price sale.
-// Called every animation frame and, in between frames, at the exact instant
-// of a player click — so a claim is settled at real elapsed time, not
-// rounded to whichever frame happened to render it.
+// time has passed, or, past the lot's full duration with nobody due, a
+// genuine UNSOLD. There is no forced fallback sale: an artist can
+// legitimately go unbought. Called every animation frame and, in between
+// frames, at the exact instant of a player click — so a claim is settled at
+// real elapsed time, not rounded to whichever frame happened to render it.
 export function tick(state: GameState, elapsedMs: number): GameState {
   if (state.phase === "sold-pause") {
     if (elapsedMs - state.phaseChangedAt >= SOLD_PAUSE_MS) {
@@ -205,12 +208,7 @@ export function tick(state: GameState, elapsedMs: number): GameState {
   }
 
   if (relativeMs >= lot.durationMs) {
-    const affordable = NPC_IDS.filter((id) => state.collectors[id].cash >= lot.floor);
-    if (affordable.length === 0) return settleUnsold(state, elapsedMs);
-    const weakest = affordable.reduce((a, b) =>
-      state.collectors[a].cash <= state.collectors[b].cash ? a : b,
-    );
-    return settleSale(state, weakest, lot.floor, elapsedMs);
+    return settleUnsold(state, elapsedMs);
   }
 
   return state;
