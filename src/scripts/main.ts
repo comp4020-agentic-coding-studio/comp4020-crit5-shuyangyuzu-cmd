@@ -268,6 +268,13 @@ function renderMarketBoard() {
     swatch.className = `swatch swatch-${artist.symbol}`;
     chip.appendChild(swatch);
 
+    // Symbol, full name and value shown together — an artist's identity in
+    // the market board never depends on reading colour alone.
+    const name = document.createElement("span");
+    name.className = "market-name";
+    name.textContent = artist.name;
+    chip.appendChild(name);
+
     const amount = document.createElement("span");
     amount.className = "market-amount";
     amount.textContent = `$${value}`;
