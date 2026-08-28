@@ -18,6 +18,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 function buildDom() {
   document.body.innerHTML = `
     <div id="ready-screen">
+      <canvas id="ready-artwork-canvas"></canvas>
       <button type="button" id="enter-auction"></button>
     </div>
     <div id="game-screen" hidden></div>

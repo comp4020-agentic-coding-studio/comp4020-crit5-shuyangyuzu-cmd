@@ -205,8 +205,8 @@ body {
 }
 
 .ready-frame {
-  width: min(320px, 78vw);
-  aspect-ratio: 4 / 5;
+  width: min(420px, 88vw);
+  aspect-ratio: 4 / 3;
   padding: 1rem;
   border-radius: 3px;
   background: linear-gradient(135deg, var(--brass), var(--brass-bright) 45%, var(--brass));
@@ -214,11 +214,14 @@ body {
 }
 
 .ready-frame-canvas {
+  display: block;
   width: 100%;
   height: 100%;
   border-radius: 2px;
   background: var(--panel);
   border: 1px solid var(--line);
+  object-fit: cover;
+  image-rendering: pixelated;
 }
 
 .enter-auction {
@@ -563,9 +566,25 @@ body {
   box-shadow: 0 0.4rem 1rem color-mix(in srgb, var(--artist-color) 35%, transparent);
 }
 
+.hand-card-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  border: 1px solid var(--artist-color);
+  image-rendering: pixelated;
+}
+
 .hand-card-name {
   font-size: 0.85rem;
   letter-spacing: 0.03em;
+}
+
+.hand-card-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-style: italic;
+  opacity: 0.85;
+  text-align: center;
 }
 
 .lot-caption {
@@ -703,13 +722,38 @@ body {
 .collection-tile {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem 0.25rem 0.25rem;
+  border-radius: 10px;
   border: 1px solid var(--artist-color);
-  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 0.85rem;
+}
+
+.collection-tile-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.collection-tile-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.collection-tile-artist {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.collection-tile-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-style: italic;
+  opacity: 0.85;
 }
 
 .end-screen {

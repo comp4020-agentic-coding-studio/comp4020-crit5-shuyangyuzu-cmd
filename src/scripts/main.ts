@@ -11,6 +11,7 @@ import {
 import { LOT_COUNT } from "../game/lots";
 import { portfolioValue } from "../game/market";
 import { NPC_NAMES } from "../game/npc";
+import { allArtworks } from "../game/pixelart";
 import { priceAtTime } from "../game/pricing";
 import { NPC_IDS, type CollectorId, type GameMode, type LotOutcome, type NpcId } from "../game/types";
 import { buildPublicView } from "../game/view";
@@ -63,6 +64,7 @@ const els = {
   endResult: document.getElementById("end-result")!,
   rankingList: document.getElementById("ranking-list")!,
   playAgain: document.getElementById("play-again")! as HTMLButtonElement,
+  readyArtworkCanvas: document.getElementById("ready-artwork-canvas")! as HTMLCanvasElement,
 };
 
 interface CollectorPanelEls {
@@ -170,27 +172,22 @@ let running = false;
 let renderedLotIndex = -1;
 const lastMarketValues = new Map<string, number>();
 
-// Each lot's artwork is a fixed, low-resolution pixel grid (see
-// pixelart.ts) drawn once per lot at its native size — the canvas is then
-// scaled up purely in CSS with image-rendering: pixelated, so the browser
-// never smooths or blurs the pixels regardless of the stage's display size.
-function renderArtwork(lot: GameState["currentLot"]) {
+// Every pixel-art piece (the current lot, a hand card, a collection
+// thumbnail, or the landing screen) is drawn through this one helper — a
+// fixed, hand-placed low-resolution colour grid (see pixelart.ts) painted at
+// its native size, then scaled up purely in CSS with image-rendering:
+// pixelated so the browser never smooths or blurs the pixels regardless of
+// the element's display size.
+function paintPixelGrid(canvas: HTMLCanvasElement, grid: string[][]) {
   // getContext("2d") is null under the project's jsdom-based tests (jsdom
   // only draws when the optional native "canvas" addon is installed, which
   // this repo deliberately doesn't add just for a unit-test dependency) —
   // every real browser always returns a context, so this guard only ever
   // skips the fill in that one test environment, never in production.
-  const ctx = els.artworkCanvas.getContext("2d");
-  if (!lot) {
-    ctx?.clearRect(0, 0, els.artworkCanvas.width, els.artworkCanvas.height);
-    return;
-  }
-  const artist = ARTISTS.find((a) => a.id === lot.artistId)!;
-  els.artworkButton.style.setProperty("--artist-color", artist.color);
-  const grid = lot.artwork.grid;
   const size = grid.length;
-  if (els.artworkCanvas.width !== size) els.artworkCanvas.width = size;
-  if (els.artworkCanvas.height !== size) els.artworkCanvas.height = size;
+  if (canvas.width !== size) canvas.width = size;
+  if (canvas.height !== size) canvas.height = size;
+  const ctx = canvas.getContext("2d");
   if (!ctx) return;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -199,6 +196,27 @@ function renderArtwork(lot: GameState["currentLot"]) {
     }
   }
 }
+
+function renderArtwork(lot: GameState["currentLot"]) {
+  if (!lot) {
+    const ctx = els.artworkCanvas.getContext("2d");
+    ctx?.clearRect(0, 0, els.artworkCanvas.width, els.artworkCanvas.height);
+    return;
+  }
+  const artist = ARTISTS.find((a) => a.id === lot.artistId)!;
+  els.artworkButton.style.setProperty("--artist-color", artist.color);
+  paintPixelGrid(els.artworkCanvas, lot.artwork.grid);
+}
+
+// Purely decorative — rendered once at module load, well before ENTER
+// AUCTION exists as a button to click, so this never starts any clock or
+// touches game state. Playtest finding #5: the landing screen's frame must
+// show the most recognisable selected artwork rather than stay empty.
+function renderReadyArtwork() {
+  const starryNight = allArtworks().find((work) => work.id === "vangogh-starry-night")!;
+  paintPixelGrid(els.readyArtworkCanvas, starryNight.grid);
+}
+renderReadyArtwork();
 
 function renderLotCaption(lot: GameState["currentLot"]) {
   if (!lot) {
@@ -246,6 +264,10 @@ function renderMarketBoard() {
   }
 }
 
+// Playtest finding #4: the player's ledger must show each acquired work's own
+// identity (a thumbnail, its artist and its title), not a collapsed
+// per-artist headcount — acquiredLots is the exact-identity record, kept in
+// sync with holdings by recordAcquisition() in engine.ts.
 function renderCollection() {
   els.collectionBoard.replaceChildren();
   const label = document.createElement("span");
@@ -254,18 +276,35 @@ function renderCollection() {
   els.collectionBoard.appendChild(label);
 
   const player = state.collectors.player;
-  for (const artist of ARTISTS) {
-    const count = player.holdings[artist.id] ?? 0;
-    if (count === 0) continue;
+  for (const lot of player.acquiredLots) {
+    const artist = ARTISTS.find((a) => a.id === lot.artistId)!;
+    const artwork = allArtworks().find((work) => work.id === lot.assetId)!;
     const tile = document.createElement("span");
     tile.className = "collection-tile";
     tile.style.setProperty("--artist-color", artist.color);
+
+    const thumb = document.createElement("canvas");
+    thumb.className = "collection-tile-thumb";
+    thumb.setAttribute("aria-hidden", "true");
+    paintPixelGrid(thumb, artwork.grid);
+    tile.appendChild(thumb);
+
     const swatch = document.createElement("span");
     swatch.className = `swatch swatch-${artist.symbol}`;
     tile.appendChild(swatch);
-    const count_ = document.createElement("span");
-    count_.textContent = `×${count}`;
-    tile.appendChild(count_);
+
+    const info = document.createElement("span");
+    info.className = "collection-tile-info";
+    const artistName = document.createElement("span");
+    artistName.className = "collection-tile-artist";
+    artistName.textContent = artist.name;
+    info.appendChild(artistName);
+    const title = document.createElement("span");
+    title.className = "collection-tile-title";
+    title.textContent = lot.title;
+    info.appendChild(title);
+    tile.appendChild(info);
+
     els.collectionBoard.appendChild(tile);
   }
 }
@@ -356,13 +395,26 @@ function renderHandCards(hand: NonNullable<GameState["hands"]["player"]>) {
     btn.type = "button";
     btn.className = "hand-card";
     btn.style.setProperty("--artist-color", artist.color);
+
+    const thumb = document.createElement("canvas");
+    thumb.className = "hand-card-thumb";
+    thumb.setAttribute("aria-hidden", "true");
+    paintPixelGrid(thumb, card.artwork.grid);
+    btn.appendChild(thumb);
+
     const swatch = document.createElement("span");
     swatch.className = `swatch swatch-${artist.symbol}`;
     btn.appendChild(swatch);
+    // Playtest finding #4: an AUCTIONEER hand card must show both the artist
+    // and the artwork title, not the artist alone.
     const name = document.createElement("span");
     name.className = "hand-card-name";
     name.textContent = artist.name;
     btn.appendChild(name);
+    const title = document.createElement("span");
+    title.className = "hand-card-title";
+    title.textContent = card.artwork.title;
+    btn.appendChild(title);
     btn.addEventListener("click", () => {
       state = selectLotCard(state, i, elapsed());
       render();
@@ -377,9 +429,13 @@ function outcomeTagText(kind: LotOutcome["saleKind"]): string {
   return "UNSOLD −15";
 }
 
-function soldBannerText(outcome: LotOutcome): string {
+// Playtest finding #4: a sale must name the exact artwork, not just its
+// buyer — "SOLD TO VIVIENNE · THE STARRY NIGHT · $92".
+function soldBannerText(outcome: LotOutcome, lot: GameState["currentLot"]): string {
   if (outcome.winner === null) return "UNSOLD";
-  return `SOLD TO ${outcome.winner === "player" ? "YOU" : COLLECTOR_LABELS[outcome.winner]} · $${outcome.price}`;
+  const buyer = outcome.winner === "player" ? "YOU" : COLLECTOR_LABELS[outcome.winner];
+  const title = lot ? lot.artwork.title : "";
+  return `SOLD TO ${buyer} · ${title} · $${outcome.price}`;
 }
 
 function paymentFlowText(outcome: LotOutcome): string {
@@ -472,7 +528,7 @@ function render() {
     els.artworkButton.classList.add("artwork-sold");
     const outcome = state.outcomes[state.outcomes.length - 1];
     if (outcome) {
-      els.soldBanner.textContent = soldBannerText(outcome);
+      els.soldBanner.textContent = soldBannerText(outcome, lot);
       els.soldBanner.hidden = false;
       els.priceTag.textContent = outcome.winner === null ? "—" : `$${outcome.price}`;
 

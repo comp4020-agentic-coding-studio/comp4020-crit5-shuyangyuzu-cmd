@@ -18,8 +18,13 @@ import Layout from "../layouts/Layout.astro";
   <main id="app">
     <div id="ready-screen" class="ready-screen">
       <h1 class="ready-title">GOING, GOING&hellip;</h1>
-      <div class="ready-frame" aria-hidden="true">
-        <div class="ready-frame-canvas"></div>
+      <div class="ready-frame">
+        <canvas
+          id="ready-artwork-canvas"
+          class="ready-frame-canvas"
+          role="img"
+          aria-label="The Starry Night by Vincent van Gogh, 1889 — pixel-art interpretation"
+        ></canvas>
       </div>
       <button type="button" id="enter-auction" class="enter-auction">ENTER AUCTION</button>
     </div>
