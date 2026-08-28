@@ -11,6 +11,7 @@ import {
 } from "../game/engine";
 import { LOT_COUNT } from "../game/lots";
 import { portfolioValue } from "../game/market";
+import { NPC_NAMES } from "../game/npc";
 import { priceAtTime } from "../game/pricing";
 import { NPC_IDS, type ArtworkShape, type CollectorId, type GameMode, type LotOutcome, type NpcId } from "../game/types";
 import { buildPublicView } from "../game/view";
@@ -21,10 +22,14 @@ if (reduceMotion) document.body.classList.add("reduce-motion");
 
 const COLLECTOR_LABELS: Record<CollectorId, string> = {
   player: "YOU",
-  trend: "TREND",
-  value: "VALUE",
-  momentum: "MOMENTUM",
+  ...NPC_NAMES,
 };
+
+// A restrained collector palette, distinct from the artist palette (which
+// uses gold/blue/purple/red) so a collector's identity colour never gets
+// mistaken for an artist's.
+const NPC_MONOGRAM: Record<NpcId, string> = { trend: "VH", value: "JV", momentum: "CM" };
+const NPC_COLOR: Record<NpcId, string> = { trend: "#8a3648", value: "#274766", momentum: "#3a5443" };
 
 function auctioneerLabel(auctioneer: CollectorId | "house"): string {
   return auctioneer === "house" ? "HOUSE" : COLLECTOR_LABELS[auctioneer];
@@ -58,17 +63,90 @@ const els = {
   playAgain: document.getElementById("play-again")! as HTMLButtonElement,
 };
 
-const trackEls: Record<NpcId, HTMLElement> = {
-  trend: document.querySelector('[data-npc="trend"]')!,
-  value: document.querySelector('[data-npc="value"]')!,
-  momentum: document.querySelector('[data-npc="momentum"]')!,
-};
+interface CollectorPanelEls {
+  root: HTMLElement;
+  auctioneerFlag: HTMLElement;
+  tileCounts: Partial<Record<string, HTMLElement>>;
+  meter: HTMLElement;
+  meterFill: HTMLElement;
+}
 
-const railEls: Record<NpcId, HTMLElement> = {
-  trend: document.querySelector(".claim-rail-trend")!,
-  value: document.querySelector(".claim-rail-value")!,
-  momentum: document.querySelector(".claim-rail-momentum")!,
-};
+const rivalPanels = {} as Record<NpcId, CollectorPanelEls>;
+
+// Built once — the NPC roster (id, name, monogram, colour) never changes
+// across a restart, only the session profile behind each one does. Rebuilding
+// this structure every animation frame was exactly the bug that made
+// AUCTIONEER hand cards unclickable, so per-frame updates below only ever
+// touch text/attributes on these already-built nodes.
+function buildRivalPanels() {
+  els.rivalsBoard.replaceChildren();
+  for (const npcId of NPC_IDS) {
+    const root = document.createElement("div");
+    root.className = "collector-panel";
+    root.style.setProperty("--collector-color", NPC_COLOR[npcId]);
+
+    const identity = document.createElement("div");
+    identity.className = "collector-identity";
+
+    const avatar = document.createElement("span");
+    avatar.className = "collector-avatar";
+    avatar.textContent = NPC_MONOGRAM[npcId];
+    avatar.setAttribute("aria-hidden", "true");
+    identity.appendChild(avatar);
+
+    const nameWrap = document.createElement("span");
+    nameWrap.className = "collector-name-wrap";
+    const name = document.createElement("span");
+    name.className = "collector-name";
+    name.textContent = NPC_NAMES[npcId];
+    nameWrap.appendChild(name);
+    const auctioneerFlag = document.createElement("span");
+    auctioneerFlag.className = "collector-auctioneer-flag";
+    auctioneerFlag.textContent = "AUCTIONEER";
+    auctioneerFlag.hidden = true;
+    nameWrap.appendChild(auctioneerFlag);
+    identity.appendChild(nameWrap);
+    root.appendChild(identity);
+
+    const collectionWrap = document.createElement("div");
+    collectionWrap.className = "collector-collection";
+    const tileCounts: Partial<Record<string, HTMLElement>> = {};
+    for (const artist of ARTISTS) {
+      const tile = document.createElement("span");
+      tile.className = "collector-tile";
+      tile.style.setProperty("--artist-color", artist.color);
+      const swatch = document.createElement("span");
+      swatch.className = `swatch swatch-${artist.symbol}`;
+      tile.appendChild(swatch);
+      const count = document.createElement("span");
+      count.textContent = "0";
+      tile.appendChild(count);
+      collectionWrap.appendChild(tile);
+      tileCounts[artist.id] = count;
+    }
+    root.appendChild(collectionWrap);
+
+    const meterWrap = document.createElement("div");
+    meterWrap.className = "collector-meter-wrap";
+    const meterLabel = document.createElement("span");
+    meterLabel.className = "collector-meter-label";
+    meterLabel.textContent = "INTEREST";
+    meterWrap.appendChild(meterLabel);
+    const meter = document.createElement("span");
+    meter.className = "collector-meter collector-meter-inactive";
+    meter.setAttribute("aria-hidden", "true");
+    const meterFill = document.createElement("span");
+    meterFill.className = "collector-meter-fill";
+    meter.appendChild(meterFill);
+    meterWrap.appendChild(meter);
+    root.appendChild(meterWrap);
+
+    els.rivalsBoard.appendChild(root);
+    rivalPanels[npcId] = { root, auctioneerFlag, tileCounts, meter, meterFill };
+  }
+}
+
+buildRivalPanels();
 
 function seedFromClock(): number {
   return Math.floor(performance.now() * 1000 + Date.now()) % 2147483647;
@@ -222,59 +300,57 @@ function renderNetWorth() {
 
 // The only place rival finances are ever read from is this public view: it
 // structurally omits rival cash/net worth until the game finishes, so this
-// function has nothing to accidentally leak even if it tried.
-function renderRivalsBoard() {
+// function has nothing to accidentally leak even if it tried. Only updates
+// text/classes on the panels buildRivalPanels() already created — no node
+// recreation on every animation frame.
+function updateRivalPanels() {
   const view = buildPublicView(state);
-  els.rivalsBoard.replaceChildren();
   for (const entry of view.collectors) {
     if (entry.id === "player") continue;
-    const row = document.createElement("div");
-    row.className = "rival-row";
+    const npcId = entry.id;
+    const panel = rivalPanels[npcId];
     const isAuctioneer = entry.id === state.currentAuctioneer;
-    row.classList.toggle("rival-row-auctioneer", isAuctioneer);
-
-    const name = document.createElement("span");
-    name.className = "rival-name";
-    name.textContent = isAuctioneer ? `\u{1F528} ${entry.name}` : entry.name;
-    row.appendChild(name);
-
-    const holdingsWrap = document.createElement("span");
-    holdingsWrap.className = "rival-holdings";
+    panel.root.classList.toggle("collector-panel-auctioneer", isAuctioneer);
+    panel.auctioneerFlag.hidden = !isAuctioneer;
     for (const artist of ARTISTS) {
       const count = entry.holdings[artist.id] ?? 0;
-      const tile = document.createElement("span");
-      tile.className = "rival-tile";
-      tile.style.setProperty("--artist-color", artist.color);
-      const swatch = document.createElement("span");
-      swatch.className = `swatch swatch-${artist.symbol}`;
-      tile.appendChild(swatch);
-      const countEl = document.createElement("span");
-      countEl.textContent = String(count);
-      tile.appendChild(countEl);
-      holdingsWrap.appendChild(tile);
+      const el = panel.tileCounts[artist.id];
+      if (el) el.textContent = String(count);
     }
-    row.appendChild(holdingsWrap);
-    els.rivalsBoard.appendChild(row);
   }
 }
 
-function renderClaimTracks(relativeMs: number) {
+// Meter fill is driven by the same resolved engine trigger time
+// (state.npcTriggers) used for claim resolution — never a separate visual
+// estimate. An NPC that has declined the lot entirely (a null trigger) gets
+// an empty, visually inactive meter rather than one that reads as "about to
+// buy".
+function updateRivalMeters(relativeMs: number) {
   for (const npcId of NPC_IDS) {
-    const trackEl = trackEls[npcId];
-    const railEl = railEls[npcId];
+    const panel = rivalPanels[npcId];
     const triggerMs = state.npcTriggers[npcId];
     if (triggerMs == null) {
-      trackEl.style.setProperty("--progress", "0");
-      trackEl.classList.add("claim-track-sitting-out");
-      trackEl.classList.remove("claim-track-arrived");
-      railEl.classList.add("claim-rail-inactive");
+      panel.meterFill.style.setProperty("--fill", "0");
+      panel.meter.classList.add("collector-meter-inactive");
+      panel.meter.classList.remove("collector-meter-near-full", "collector-meter-arrived");
       continue;
     }
-    trackEl.classList.remove("claim-track-sitting-out");
-    railEl.classList.remove("claim-rail-inactive");
+    panel.meter.classList.remove("collector-meter-inactive");
     const progress = Math.max(0, Math.min(1, relativeMs / Math.max(1, triggerMs)));
-    trackEl.style.setProperty("--progress", String(progress));
-    trackEl.classList.toggle("claim-track-arrived", progress >= 1);
+    panel.meterFill.style.setProperty("--fill", String(progress));
+    panel.meter.classList.toggle("collector-meter-near-full", progress >= 0.85 && progress < 1);
+    panel.meter.classList.toggle("collector-meter-arrived", progress >= 1);
+  }
+}
+
+// No lot currently running (between turns, or the player is choosing a card
+// to auction) — nothing should read as "approaching a purchase".
+function resetRivalMeters() {
+  for (const npcId of NPC_IDS) {
+    const panel = rivalPanels[npcId];
+    panel.meterFill.style.setProperty("--fill", "0");
+    panel.meter.classList.add("collector-meter-inactive");
+    panel.meter.classList.remove("collector-meter-near-full", "collector-meter-arrived");
   }
 }
 
@@ -370,7 +446,7 @@ function render() {
 
   els.auctioneerLabel.textContent = `AUCTIONEER: ${auctioneerLabel(state.currentAuctioneer)}`;
   renderNetWorth();
-  renderRivalsBoard();
+  updateRivalPanels();
 
   els.cash.textContent = `$${state.collectors.player.cash}`;
   els.lotCounter.textContent = `${Math.min(state.currentTurnIndex + 1, LOT_COUNT)} / ${LOT_COUNT}`;
@@ -389,6 +465,7 @@ function render() {
     els.stage.hidden = true;
     els.paymentFlow.hidden = true;
     els.lotCaption.hidden = true;
+    resetRivalMeters();
     renderHandCardsIfNeeded();
     return;
   }
@@ -413,7 +490,7 @@ function render() {
     els.artworkButton.classList.remove("artwork-sold");
     const price = priceAtTime(lot, relativeMs);
     els.priceTag.textContent = `$${Math.round(price)}`;
-    renderClaimTracks(relativeMs);
+    updateRivalMeters(relativeMs);
   } else if (state.phase === "sold-pause") {
     els.artworkButton.disabled = true;
     els.artworkButton.classList.add("artwork-sold");
@@ -434,7 +511,7 @@ function render() {
         els.paymentFlow.hidden = true;
       }
     }
-    renderClaimTracks(lot ? lot.durationMs : 0);
+    updateRivalMeters(lot ? lot.durationMs : 0);
   }
 }
 

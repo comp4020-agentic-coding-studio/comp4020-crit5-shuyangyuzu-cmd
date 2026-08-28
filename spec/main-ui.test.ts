@@ -33,12 +33,6 @@ function buildDom() {
       <span id="artist-name"></span>
     </div>
     <div class="stage" id="stage" hidden>
-      <span class="claim-rail claim-rail-trend"></span>
-      <span class="claim-rail claim-rail-value"></span>
-      <span class="claim-rail claim-rail-momentum"></span>
-      <div class="claim-track claim-track-trend" data-npc="trend"><span class="claim-track-mark"></span></div>
-      <div class="claim-track claim-track-value" data-npc="value"><span class="claim-track-mark"></span></div>
-      <div class="claim-track claim-track-momentum" data-npc="momentum"><span class="claim-track-mark"></span></div>
       <button type="button" id="artwork-button">
         <svg id="artwork-svg" viewBox="0 0 100 100"></svg>
         <span id="outcome-tag" hidden></span>

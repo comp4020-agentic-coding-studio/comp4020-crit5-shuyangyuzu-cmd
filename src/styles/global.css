@@ -234,46 +234,145 @@ body {
 .rivals-board {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
   width: 100%;
   max-width: 32rem;
 }
 
-.rival-row {
+.collector-panel {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.4rem 0.7rem;
-  border-radius: 8px;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
   border: 1px solid var(--line);
-  font-size: 0.85rem;
 }
 
-.rival-row-auctioneer {
+.collector-panel-auctioneer {
   border-color: var(--ink);
   background: var(--panel);
 }
 
-.rival-name {
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
+.collector-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 1;
+  min-width: 0;
 }
 
-.rival-holdings {
+.collector-avatar {
   display: flex;
-  gap: 0.45rem;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--collector-color);
+  color: var(--collector-color);
+  font-weight: 900;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}
+
+.collector-name-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.collector-name {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collector-auctioneer-flag {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: #cfc9dc;
+}
+
+.collector-collection {
+  display: flex;
+  gap: 0.4rem;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
-.rival-tile {
+.collector-tile {
   display: flex;
   align-items: center;
   gap: 0.25rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.collector-meter-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.collector-meter-label {
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  color: #9a93a8;
+}
+
+.collector-meter {
+  --fill: 0;
+  position: relative;
+  width: 0.55rem;
+  height: 3.2rem;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+  transition: opacity 0.3s ease;
+}
+
+.collector-meter-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--fill, 0) * 100%);
+  background: #d4af37;
+  transition: height 0.2s linear, background 0.3s ease;
+}
+
+.collector-meter-near-full .collector-meter-fill {
+  background: #8a3648;
+  animation: collector-meter-pulse 1.1s ease-in-out infinite;
+}
+
+.collector-meter-arrived .collector-meter-fill {
+  background: #8a3648;
+}
+
+.collector-meter-inactive {
+  opacity: 0.32;
+}
+
+.collector-meter-inactive .collector-meter-fill {
+  height: 0;
+}
+
+@keyframes collector-meter-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .selecting-panel {
@@ -344,43 +443,6 @@ body {
   width: min(78vw, 62vh, 460px);
   aspect-ratio: 1 / 1;
   margin-top: 1.5rem;
-}
-
-.claim-rail {
-  position: absolute;
-  z-index: 1;
-  background: var(--line);
-  transition: opacity 0.3s ease;
-}
-
-.claim-rail-inactive {
-  opacity: 0.3;
-}
-
-.claim-rail-trend {
-  top: -16%;
-  left: 50%;
-  width: 2px;
-  height: 42%;
-  transform: translateX(-50%);
-}
-
-.claim-rail-value {
-  bottom: -10%;
-  left: 2%;
-  width: 40%;
-  height: 2px;
-  transform-origin: left bottom;
-  transform: rotate(-28deg);
-}
-
-.claim-rail-momentum {
-  bottom: -10%;
-  right: 2%;
-  width: 40%;
-  height: 2px;
-  transform-origin: right bottom;
-  transform: rotate(28deg);
 }
 
 .artwork {
@@ -473,73 +535,6 @@ body {
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #cfc9dc;
-}
-
-.claim-track {
-  --progress: 0;
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  z-index: 2;
-  opacity: 1;
-  transition: opacity 0.3s ease;
-}
-
-.claim-track-mark {
-  width: clamp(1.1rem, 4vw, 1.6rem);
-  height: clamp(1.1rem, 4vw, 1.6rem);
-  border-radius: 50%;
-  border: 2px solid var(--ink);
-  background: var(--panel);
-}
-
-.claim-track-tag {
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #cfc9dc;
-}
-
-.claim-track-trend {
-  top: calc(-16% + var(--progress) * 58%);
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.claim-track-trend .claim-track-mark {
-  border-color: #8b5cf6;
-}
-
-.claim-track-value {
-  bottom: calc(-10% + var(--progress) * 52%);
-  left: calc(2% + var(--progress) * 38%);
-  transform: translate(-50%, 50%);
-}
-
-.claim-track-value .claim-track-mark {
-  border-color: #14b8a6;
-}
-
-.claim-track-momentum {
-  bottom: calc(-10% + var(--progress) * 52%);
-  right: calc(2% + var(--progress) * 38%);
-  transform: translate(50%, 50%);
-}
-
-.claim-track-momentum .claim-track-mark {
-  border-color: #f97316;
-}
-
-.claim-track-arrived .claim-track-mark {
-  background: var(--ink);
-  transform: scale(1.25);
-  transition: transform 0.2s ease, background 0.2s ease;
-}
-
-.claim-track-sitting-out {
-  opacity: 0.28;
 }
 
 .collection {
@@ -665,12 +660,12 @@ body {
     max-width: 100%;
   }
 
-  .rival-row {
+  .collector-panel {
     flex-wrap: wrap;
     justify-content: center;
   }
 
-  .rival-holdings {
+  .collector-collection {
     justify-content: center;
   }
 
