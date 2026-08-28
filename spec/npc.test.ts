@@ -15,7 +15,7 @@ function sampleLot(): Lot {
   return {
     index: 0,
     artistId: "vangogh",
-    artwork: { background: "#000", shapes: [] },
+    artwork: { title: "Test Piece", grid: [["#000"]] },
     ceiling: 200,
     floor: 40,
     durationMs: 12_000,

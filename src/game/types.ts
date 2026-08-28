@@ -15,23 +15,14 @@ export interface Collector {
   holdings: Partial<Record<ArtistId, number>>;
 }
 
-export type ArtworkShapeKind = "circle" | "square" | "triangle" | "stroke";
-
-export interface ArtworkShape {
-  kind: ArtworkShapeKind;
-  x: number;
-  y: number;
-  size: number;
-  // Only meaningful for "stroke": the long dimension of an elongated rect.
-  length?: number;
-  rotation: number;
-  opacity: number;
-  toneShift: number;
-}
-
+// A fixed, hand-placed low-resolution pixel grid — one hex colour per cell,
+// square (grid.length rows of grid.length cells) — rendered at native size
+// onto a canvas and scaled up with image-rendering: pixelated. See
+// pixelart.ts for how the twelve pieces are built and ART_PROVENANCE.md for
+// the real paintings they take loose inspiration from.
 export interface ArtworkSpec {
-  background: string;
-  shapes: ArtworkShape[];
+  title: string;
+  grid: string[][];
 }
 
 // Fixed at game creation: which artist, which artwork. Pricing is deliberately

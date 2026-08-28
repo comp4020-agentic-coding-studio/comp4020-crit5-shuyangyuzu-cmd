@@ -45,11 +45,12 @@ import Layout from "../layouts/Layout.astro";
           <div id="lot-caption" class="lot-caption">
             <span id="artist-swatch" class="swatch"></span>
             <span id="artist-name" class="lot-caption-name"></span>
+            <span id="artwork-title" class="artwork-title"></span>
           </div>
 
           <div class="stage" id="stage">
             <button type="button" id="artwork-button" class="artwork" aria-label="Claim this artwork">
-              <svg id="artwork-svg" viewBox="0 0 100 100" aria-hidden="true"></svg>
+              <canvas id="artwork-canvas" aria-hidden="true"></canvas>
               <span id="outcome-tag" class="outcome-tag" hidden></span>
               <span id="sold-banner" class="sold-banner" hidden></span>
             </button>

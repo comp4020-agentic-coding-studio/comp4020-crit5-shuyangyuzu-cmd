@@ -1,4 +1,3 @@
-import { shiftColor } from "../game/artwork";
 import {
   ARTISTS,
   attemptPlayerClaim,
@@ -13,10 +12,9 @@ import { LOT_COUNT } from "../game/lots";
 import { portfolioValue } from "../game/market";
 import { NPC_NAMES } from "../game/npc";
 import { priceAtTime } from "../game/pricing";
-import { NPC_IDS, type ArtworkShape, type CollectorId, type GameMode, type LotOutcome, type NpcId } from "../game/types";
+import { NPC_IDS, type CollectorId, type GameMode, type LotOutcome, type NpcId } from "../game/types";
 import { buildPublicView } from "../game/view";
 
-const SVG_NS = "http://www.w3.org/2000/svg";
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 if (reduceMotion) document.body.classList.add("reduce-motion");
 
@@ -52,8 +50,9 @@ const els = {
   lotCaption: document.getElementById("lot-caption")!,
   artistSwatch: document.getElementById("artist-swatch")!,
   artistName: document.getElementById("artist-name")!,
+  artworkTitle: document.getElementById("artwork-title")!,
   artworkButton: document.getElementById("artwork-button")! as HTMLButtonElement,
-  artworkSvg: document.getElementById("artwork-svg")! as unknown as SVGSVGElement,
+  artworkCanvas: document.getElementById("artwork-canvas")! as HTMLCanvasElement,
   outcomeTag: document.getElementById("outcome-tag")!,
   soldBanner: document.getElementById("sold-banner")!,
   priceTag: document.getElementById("price-tag")!,
@@ -171,72 +170,33 @@ let running = false;
 let renderedLotIndex = -1;
 const lastMarketValues = new Map<string, number>();
 
-function createShapeNode(shape: ArtworkShape, baseColor: string): SVGElement {
-  const color = shiftColor(baseColor, shape.toneShift);
-  const half = shape.size / 2;
-  if (shape.kind === "circle") {
-    const node = document.createElementNS(SVG_NS, "circle");
-    node.setAttribute("cx", String(shape.x));
-    node.setAttribute("cy", String(shape.y));
-    node.setAttribute("r", String(half));
-    node.setAttribute("fill", color);
-    node.setAttribute("fill-opacity", String(shape.opacity));
-    return node;
-  }
-  if (shape.kind === "square") {
-    const node = document.createElementNS(SVG_NS, "rect");
-    node.setAttribute("x", String(shape.x - half));
-    node.setAttribute("y", String(shape.y - half));
-    node.setAttribute("width", String(shape.size));
-    node.setAttribute("height", String(shape.size));
-    node.setAttribute("fill", color);
-    node.setAttribute("fill-opacity", String(shape.opacity));
-    node.setAttribute("transform", `rotate(${shape.rotation} ${shape.x} ${shape.y})`);
-    return node;
-  }
-  if (shape.kind === "stroke") {
-    const length = shape.length ?? shape.size;
-    const node = document.createElementNS(SVG_NS, "rect");
-    node.setAttribute("x", String(shape.x - length / 2));
-    node.setAttribute("y", String(shape.y - half));
-    node.setAttribute("width", String(length));
-    node.setAttribute("height", String(shape.size));
-    node.setAttribute("rx", String(half));
-    node.setAttribute("fill", color);
-    node.setAttribute("fill-opacity", String(shape.opacity));
-    node.setAttribute("transform", `rotate(${shape.rotation} ${shape.x} ${shape.y})`);
-    return node;
-  }
-  const node = document.createElementNS(SVG_NS, "polygon");
-  const points = [
-    [shape.x, shape.y - half],
-    [shape.x + half, shape.y + half],
-    [shape.x - half, shape.y + half],
-  ]
-    .map((p) => p.join(","))
-    .join(" ");
-  node.setAttribute("points", points);
-  node.setAttribute("fill", color);
-  node.setAttribute("fill-opacity", String(shape.opacity));
-  node.setAttribute("transform", `rotate(${shape.rotation} ${shape.x} ${shape.y})`);
-  return node;
-}
-
+// Each lot's artwork is a fixed, low-resolution pixel grid (see
+// pixelart.ts) drawn once per lot at its native size — the canvas is then
+// scaled up purely in CSS with image-rendering: pixelated, so the browser
+// never smooths or blurs the pixels regardless of the stage's display size.
 function renderArtwork(lot: GameState["currentLot"]) {
-  while (els.artworkSvg.firstChild) els.artworkSvg.removeChild(els.artworkSvg.firstChild);
-  if (!lot) return;
+  // getContext("2d") is null under the project's jsdom-based tests (jsdom
+  // only draws when the optional native "canvas" addon is installed, which
+  // this repo deliberately doesn't add just for a unit-test dependency) —
+  // every real browser always returns a context, so this guard only ever
+  // skips the fill in that one test environment, never in production.
+  const ctx = els.artworkCanvas.getContext("2d");
+  if (!lot) {
+    ctx?.clearRect(0, 0, els.artworkCanvas.width, els.artworkCanvas.height);
+    return;
+  }
   const artist = ARTISTS.find((a) => a.id === lot.artistId)!;
-  els.artworkButton.style.setProperty("--stage-bg", lot.artwork.background);
   els.artworkButton.style.setProperty("--artist-color", artist.color);
-  const bg = document.createElementNS(SVG_NS, "rect");
-  bg.setAttribute("x", "0");
-  bg.setAttribute("y", "0");
-  bg.setAttribute("width", "100");
-  bg.setAttribute("height", "100");
-  bg.setAttribute("fill", lot.artwork.background);
-  els.artworkSvg.appendChild(bg);
-  for (const shape of lot.artwork.shapes) {
-    els.artworkSvg.appendChild(createShapeNode(shape, artist.color));
+  const grid = lot.artwork.grid;
+  const size = grid.length;
+  if (els.artworkCanvas.width !== size) els.artworkCanvas.width = size;
+  if (els.artworkCanvas.height !== size) els.artworkCanvas.height = size;
+  if (!ctx) return;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      ctx.fillStyle = grid[y][x];
+      ctx.fillRect(x, y, 1, 1);
+    }
   }
 }
 
@@ -250,6 +210,7 @@ function renderLotCaption(lot: GameState["currentLot"]) {
   els.lotCaption.style.setProperty("--artist-color", artist.color);
   els.artistSwatch.className = `swatch swatch-${artist.symbol}`;
   els.artistName.textContent = artist.name;
+  els.artworkTitle.textContent = lot.artwork.title;
 }
 
 function renderMarketBoard() {

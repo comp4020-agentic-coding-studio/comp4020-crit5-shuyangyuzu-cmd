@@ -1,5 +1,5 @@
 import { ARTISTS } from "./artists";
-import { generateArtwork } from "./artwork";
+import { pickArtwork } from "./pixelart";
 import { shuffle, type RngState } from "./rng";
 import { COLLECTOR_IDS, type CollectorId, type LotBlueprint } from "./types";
 
@@ -13,22 +13,23 @@ export const FLOOR_MULTIPLIER = 0.35;
 // assignment and running order are fixed at game start; each lot's price
 // range is computed later, from whatever the market looks like when it comes
 // up, so a mid-game price move on an artist is visible in their next lot.
+// Each artist's three fixed pixel-art pieces (see pixelart.ts) are paired
+// one-to-one with a variant slot before shuffling, so every game shows all
+// three of an artist's works exactly once rather than repeating one by
+// chance.
 export function generateLotBlueprints(state: RngState): { value: LotBlueprint[]; state: RngState } {
   const perArtist = LOT_COUNT / ARTISTS.length;
-  const artistSequence = ARTISTS.flatMap((artist) => Array(perArtist).fill(artist));
+  const slots = ARTISTS.flatMap((artist) => Array.from({ length: perArtist }, (_, variant) => ({ artist, variant })));
 
-  const shuffled = shuffle(artistSequence, state);
-  let s = shuffled.state;
+  const shuffled = shuffle(slots, state);
 
-  const blueprints: LotBlueprint[] = [];
-  for (let i = 0; i < shuffled.value.length; i++) {
-    const artist = shuffled.value[i];
-    const artwork = generateArtwork(artist, s);
-    s = artwork.state;
-    blueprints.push({ index: i, artistId: artist.id, artwork: artwork.value });
-  }
+  const blueprints: LotBlueprint[] = shuffled.value.map((slot, i) => ({
+    index: i,
+    artistId: slot.artist.id,
+    artwork: pickArtwork(slot.artist.id, slot.variant),
+  }));
 
-  return { value: blueprints, state: s };
+  return { value: blueprints, state: shuffled.state };
 }
 
 // AUCTIONEER mode: each collector's starting hand of lot cards, dealt

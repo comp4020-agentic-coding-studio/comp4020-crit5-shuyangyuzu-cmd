@@ -35,10 +35,11 @@ function buildDom() {
     <div id="lot-caption" hidden>
       <span id="artist-swatch"></span>
       <span id="artist-name"></span>
+      <span id="artwork-title"></span>
     </div>
     <div class="stage" id="stage" hidden>
       <button type="button" id="artwork-button">
-        <svg id="artwork-svg" viewBox="0 0 100 100"></svg>
+        <canvas id="artwork-canvas"></canvas>
         <span id="outcome-tag" hidden></span>
         <span id="sold-banner" hidden></span>
       </button>

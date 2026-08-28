@@ -596,7 +596,7 @@ body {
   padding: 0;
   overflow: hidden;
   cursor: pointer;
-  background: var(--stage-bg, #111);
+  background: #111;
   outline-offset: 4px;
   transition: transform 0.15s ease, filter 0.3s ease;
 }
@@ -618,10 +618,17 @@ body {
   filter: grayscale(0.35) brightness(0.75);
 }
 
-.artwork svg {
+.artwork canvas {
   display: block;
   width: 100%;
   height: 100%;
+  image-rendering: pixelated;
+}
+
+.artwork-title {
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
 }
 
 .outcome-tag {

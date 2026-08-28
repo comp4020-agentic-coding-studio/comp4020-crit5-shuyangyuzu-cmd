@@ -1,5 +1,5 @@
 export * from "./artists";
-export * from "./artwork";
+export * from "./pixelart";
 export {
   createGame,
   tick,
