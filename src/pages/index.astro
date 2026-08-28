@@ -2,19 +2,61 @@
 import Layout from "../layouts/Layout.astro";
 ---
 
-<Layout title="COMP4020 prototype">
-  <header>
+<Layout
+  title="GOING, GOING&hellip;"
+  description="A live-nerve art auction. Twelve lots, four collectors, one falling price."
+>
+  <header class="topbar">
     <nav aria-label="Primary">
-      <a href="./">Home</a>
+      <a href="./" class="wordmark">GOING, GOING&hellip;</a>
     </nav>
   </header>
-  <main>
-    <h1>COMP4020 prototype</h1>
-    <p>
-      Replace this with your prototype. This week's brief is on the course
-      website; <code>spec/README.md</code> explains how the checks in this repo
-      relate to it.
-    </p>
+  <main id="app">
+    <h1 class="visually-hidden">GOING, GOING&hellip;</h1>
+
+    <div class="hud">
+      <div class="hud-cell hud-cash">
+        <span class="hud-label">CASH</span>
+        <span id="player-cash" class="hud-value">$0</span>
+      </div>
+      <div id="market-board" class="hud-cell hud-market" aria-label="Market values"></div>
+      <div class="hud-cell hud-lot">
+        <span class="hud-label">LOT</span>
+        <span id="lot-counter" class="hud-value">1 / 12</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="bidder bidder-trend" data-npc="trend">
+        <span class="bidder-mark"></span>
+        <span class="bidder-tag">Trend</span>
+      </div>
+      <div class="bidder bidder-value" data-npc="value">
+        <span class="bidder-mark"></span>
+        <span class="bidder-tag">Value</span>
+      </div>
+      <div class="bidder bidder-momentum" data-npc="momentum">
+        <span class="bidder-mark"></span>
+        <span class="bidder-tag">Momentum</span>
+      </div>
+
+      <button type="button" id="artwork-button" class="artwork" aria-label="Claim this artwork">
+        <svg id="artwork-svg" viewBox="0 0 100 100" aria-hidden="true"></svg>
+        <span id="sold-banner" class="sold-banner" hidden></span>
+      </button>
+
+      <div class="price-rail" aria-live="off">
+        <span id="price-tag" class="price-tag">$0</span>
+      </div>
+    </div>
+
+    <div id="collection-board" class="collection" aria-label="Collection"></div>
+
+    <div id="end-screen" class="end-screen" hidden>
+      <p id="end-result" class="end-result">WIN</p>
+      <ol id="ranking-list" class="ranking-list"></ol>
+      <button type="button" id="play-again" class="play-again">PLAY AGAIN</button>
+    </div>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>
