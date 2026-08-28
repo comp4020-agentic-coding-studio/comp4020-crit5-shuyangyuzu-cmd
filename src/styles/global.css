@@ -15,6 +15,8 @@
   --tag-premium: #d4af37;
   --tag-discount: #e0a95c;
   --tag-unsold: #c97b8a;
+  --deal-good: #3f8f63;
+  --deal-bad: #8a3648;
   --accent: var(--brass-bright);
   --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
   font-family: "Helvetica Neue", Arial, sans-serif;
@@ -162,7 +164,10 @@ body {
 
 @media (min-width: 900px) {
   .game-layout {
-    grid-template-columns: 15rem minmax(0, 1fr) 16rem;
+    /* Playtest finding #8: current market value is strategically more
+       important than the player ledger, so the market panel gets more
+       width and stronger framing than the ledger panel on the same row. */
+    grid-template-columns: 18rem minmax(0, 1fr) 14rem;
     grid-template-areas:
       "market stage ledger"
       "rivals rivals rivals";
@@ -184,6 +189,20 @@ body {
   .panel-rivals {
     grid-area: rivals;
   }
+}
+
+.panel-market {
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brass-bright) 25%, transparent);
+}
+
+.panel-market .panel-title {
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.panel-ledger .panel-title {
+  font-size: 0.72rem;
 }
 
 .ready-screen {
@@ -591,6 +610,126 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Playtest finding #8: current bid and market value sit side by side, above
+   the artwork, with the premium/discount state carried by an icon and a
+   text label rather than colour alone. */
+.bid-market-compare {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: min(78vw, 460px);
+}
+
+.bid-market-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  flex: 1;
+}
+
+.bid-market-value {
+  font-size: clamp(1.25rem, 5vw, 1.8rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.bid-market-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  border: 1px solid var(--line);
+}
+
+.bid-market-arrow {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.bid-market-below-market {
+  color: var(--deal-good);
+  border-color: var(--deal-good);
+  background: color-mix(in srgb, var(--deal-good) 14%, transparent);
+}
+
+.bid-market-above-market {
+  color: var(--deal-bad);
+  border-color: var(--deal-bad);
+  background: color-mix(in srgb, var(--deal-bad) 14%, transparent);
+}
+
+.bid-market-at-market {
+  color: var(--ink-soft);
+}
+
+/* Playtest finding #6: the artwork stays one semantic button, but a hover
+   or focus overlay makes the bid affordance explicit instead of relying on
+   the cursor changing to a pointer. */
+.bid-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  background: rgba(8, 7, 10, 0.55);
+  color: var(--ink-on-dark);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.bid-overlay-icon {
+  font-size: 1.6rem;
+}
+
+.bid-overlay-label {
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  font-size: clamp(1rem, 4vw, 1.3rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.artwork:hover .bid-overlay,
+.artwork:focus-visible .bid-overlay {
+  opacity: 1;
+}
+
+.artwork.artwork-sold .bid-overlay {
+  display: none;
+}
+
+/* Touch has no hover state, so the affordance stays visible as a compact
+   pill anchored to the bottom of the artwork rather than a full overlay. */
+@media (pointer: coarse) {
+  .bid-overlay {
+    inset: auto 0.6rem 0.6rem auto;
+    flex-direction: row;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(8, 7, 10, 0.82);
+    opacity: 1;
+  }
+
+  .bid-overlay-icon {
+    font-size: 1rem;
+  }
+
+  .bid-overlay-label {
+    font-size: 0.85rem;
+  }
 }
 
 .lot-caption-name {

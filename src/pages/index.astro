@@ -53,11 +53,30 @@ import Layout from "../layouts/Layout.astro";
             <span id="artwork-title" class="artwork-title"></span>
           </div>
 
+          <div id="bid-market-compare" class="bid-market-compare" hidden>
+            <div class="bid-market-stat">
+              <span class="hud-label">CURRENT BID</span>
+              <span id="bid-compare-value" class="bid-market-value">$0</span>
+            </div>
+            <span id="bid-market-indicator" class="bid-market-indicator" aria-hidden="true">
+              <span id="bid-market-arrow" class="bid-market-arrow" aria-hidden="true"></span>
+              <span id="bid-market-label" class="bid-market-label"></span>
+            </span>
+            <div class="bid-market-stat">
+              <span class="hud-label">MARKET VALUE</span>
+              <span id="market-compare-value" class="bid-market-value">$0</span>
+            </div>
+          </div>
+
           <div class="stage" id="stage">
             <button type="button" id="artwork-button" class="artwork" aria-label="Claim this artwork">
               <canvas id="artwork-canvas" aria-hidden="true"></canvas>
               <span id="outcome-tag" class="outcome-tag" hidden></span>
               <span id="sold-banner" class="sold-banner" hidden></span>
+              <span id="bid-overlay" class="bid-overlay" aria-hidden="true">
+                <span class="bid-overlay-icon">&#128296;</span>
+                <span id="bid-overlay-label" class="bid-overlay-label">BID $0</span>
+              </span>
             </button>
 
             <div class="price-rail" aria-live="off">

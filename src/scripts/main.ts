@@ -56,6 +56,14 @@ const els = {
   artworkCanvas: document.getElementById("artwork-canvas")! as HTMLCanvasElement,
   outcomeTag: document.getElementById("outcome-tag")!,
   soldBanner: document.getElementById("sold-banner")!,
+  bidOverlay: document.getElementById("bid-overlay")!,
+  bidOverlayLabel: document.getElementById("bid-overlay-label")!,
+  bidMarketCompare: document.getElementById("bid-market-compare")! as HTMLElement,
+  bidCompareValue: document.getElementById("bid-compare-value")!,
+  marketCompareValue: document.getElementById("market-compare-value")!,
+  bidMarketIndicator: document.getElementById("bid-market-indicator")!,
+  bidMarketArrow: document.getElementById("bid-market-arrow")!,
+  bidMarketLabel: document.getElementById("bid-market-label")!,
   priceTag: document.getElementById("price-tag")!,
   paymentFlow: document.getElementById("payment-flow")!,
   collectionBoard: document.getElementById("collection-board")!,
@@ -229,6 +237,47 @@ function renderLotCaption(lot: GameState["currentLot"]) {
   els.artistSwatch.className = `swatch swatch-${artist.symbol}`;
   els.artistName.textContent = artist.name;
   els.artworkTitle.textContent = lot.artwork.title;
+}
+
+// Playtest findings #6/#8: the current bid is compared against the artist's
+// live market value on every frame, with a text+icon state (never colour
+// alone), and the artwork button's accessible name is kept in sync with the
+// same number so the bid affordance is explicit for keyboard/AT users too.
+function updateBidAffordance(lot: NonNullable<GameState["currentLot"]>, price: number, biddable: boolean) {
+  const marketValue = state.market[lot.artistId];
+  els.bidMarketCompare.hidden = false;
+  els.bidCompareValue.textContent = `$${Math.round(price)}`;
+  els.marketCompareValue.textContent = `$${marketValue}`;
+
+  els.bidMarketIndicator.classList.remove("bid-market-below-market", "bid-market-above-market", "bid-market-at-market");
+  if (price < marketValue) {
+    els.bidMarketIndicator.classList.add("bid-market-below-market");
+    els.bidMarketArrow.textContent = "↓";
+    els.bidMarketLabel.textContent = "BELOW MARKET";
+  } else if (price > marketValue) {
+    els.bidMarketIndicator.classList.add("bid-market-above-market");
+    els.bidMarketArrow.textContent = "↑";
+    els.bidMarketLabel.textContent = "ABOVE MARKET";
+  } else {
+    els.bidMarketIndicator.classList.add("bid-market-at-market");
+    els.bidMarketArrow.textContent = "=";
+    els.bidMarketLabel.textContent = "AT MARKET";
+  }
+
+  // The overlay/accessible-name only ever promises a live bid while the lot
+  // is still biddable — once sold, the sold banner is the source of truth.
+  const artist = ARTISTS.find((a) => a.id === lot.artistId)!;
+  if (!biddable) {
+    els.artworkButton.setAttribute("aria-label", `${lot.artwork.title} by ${artist.name} — sold`);
+    return;
+  }
+  const roundedPrice = Math.round(price);
+  els.bidOverlayLabel.textContent = `BID $${roundedPrice}`;
+  els.artworkButton.setAttribute("aria-label", `Bid $${roundedPrice} for ${lot.artwork.title} by ${artist.name}`);
+}
+
+function hideBidAffordance() {
+  els.bidMarketCompare.hidden = true;
 }
 
 function renderMarketBoard() {
@@ -473,6 +522,7 @@ function renderEndScreen() {
   els.selectingPanel.hidden = true;
   els.paymentFlow.hidden = true;
   els.lotCaption.hidden = true;
+  hideBidAffordance();
 }
 
 function render() {
@@ -497,6 +547,7 @@ function render() {
     els.stage.hidden = true;
     els.paymentFlow.hidden = true;
     els.lotCaption.hidden = true;
+    hideBidAffordance();
     resetRivalMeters();
     renderHandCardsIfNeeded();
     return;
@@ -522,6 +573,7 @@ function render() {
     els.artworkButton.classList.remove("artwork-sold");
     const price = priceAtTime(lot, relativeMs);
     els.priceTag.textContent = `$${Math.round(price)}`;
+    updateBidAffordance(lot, price, true);
     updateRivalMeters(relativeMs);
   } else if (state.phase === "sold-pause") {
     els.artworkButton.disabled = true;
@@ -531,6 +583,7 @@ function render() {
       els.soldBanner.textContent = soldBannerText(outcome, lot);
       els.soldBanner.hidden = false;
       els.priceTag.textContent = outcome.winner === null ? "—" : `$${outcome.price}`;
+      if (lot) updateBidAffordance(lot, outcome.winner === null ? 0 : outcome.price, false);
 
       els.outcomeTag.textContent = outcomeTagText(outcome.saleKind);
       els.outcomeTag.className = `outcome-tag outcome-tag-${outcome.saleKind}`;
