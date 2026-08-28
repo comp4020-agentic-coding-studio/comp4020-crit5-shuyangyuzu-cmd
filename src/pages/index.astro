@@ -25,55 +25,67 @@ import Layout from "../layouts/Layout.astro";
     </div>
 
     <div id="game-screen" class="game-screen" hidden>
-      <div id="auctioneer-banner" class="auctioneer-banner">
-        <span class="gavel" aria-hidden="true">&#128296;</span>
-        <span id="auctioneer-label">AUCTIONEER: HOUSE</span>
-      </div>
+      <div class="game-layout">
+        <section class="panel panel-market" aria-labelledby="market-panel-title">
+          <h2 id="market-panel-title" class="panel-title">MARKET</h2>
+          <div id="market-board" class="market-board"></div>
+        </section>
 
-      <div class="networth">
-        <span class="hud-label">NET WORTH = CASH + COLLECTION</span>
-        <span id="net-worth-formula" class="networth-formula">$0 = $0 + $0</span>
-      </div>
+        <div class="panel-stage">
+          <div id="auctioneer-banner" class="auctioneer-banner">
+            <span class="gavel" aria-hidden="true">&#128296;</span>
+            <span id="auctioneer-label">AUCTIONEER: HOUSE</span>
+          </div>
 
-      <div class="hud">
-        <div class="hud-cell hud-cash">
-          <span class="hud-label">CASH</span>
-          <span id="player-cash" class="hud-value">$0</span>
+          <div id="selecting-panel" class="selecting-panel" hidden>
+            <p class="selecting-heading"><span class="gavel" aria-hidden="true">&#128296;</span> YOUR AUCTION</p>
+            <div id="hand-cards" class="hand-cards"></div>
+          </div>
+
+          <div id="lot-caption" class="lot-caption">
+            <span id="artist-swatch" class="swatch"></span>
+            <span id="artist-name" class="lot-caption-name"></span>
+          </div>
+
+          <div class="stage" id="stage">
+            <button type="button" id="artwork-button" class="artwork" aria-label="Claim this artwork">
+              <svg id="artwork-svg" viewBox="0 0 100 100" aria-hidden="true"></svg>
+              <span id="outcome-tag" class="outcome-tag" hidden></span>
+              <span id="sold-banner" class="sold-banner" hidden></span>
+            </button>
+
+            <div class="price-rail" aria-live="off">
+              <span id="price-tag" class="price-tag">$0</span>
+            </div>
+          </div>
+
+          <div id="payment-flow" class="payment-flow" hidden></div>
         </div>
-        <div id="market-board" class="hud-cell hud-market" aria-label="Market values"></div>
-        <div class="hud-cell hud-lot">
-          <span class="hud-label">LOT</span>
-          <span id="lot-counter" class="hud-value">1 / 12</span>
-        </div>
+
+        <section class="panel panel-ledger" aria-labelledby="ledger-panel-title">
+          <h2 id="ledger-panel-title" class="panel-title">LEDGER</h2>
+          <div class="networth">
+            <span class="hud-label">NET WORTH = CASH + COLLECTION</span>
+            <span id="net-worth-formula" class="networth-formula">$0 = $0 + $0</span>
+          </div>
+          <div class="hud">
+            <div class="hud-cell hud-cash">
+              <span class="hud-label">CASH</span>
+              <span id="player-cash" class="hud-value">$0</span>
+            </div>
+            <div class="hud-cell hud-lot">
+              <span class="hud-label">LOT</span>
+              <span id="lot-counter" class="hud-value">1 / 12</span>
+            </div>
+          </div>
+          <div id="collection-board" class="collection"></div>
+        </section>
+
+        <section class="panel panel-rivals" aria-labelledby="rivals-panel-title">
+          <h2 id="rivals-panel-title" class="panel-title">COLLECTORS</h2>
+          <div id="rivals-board" class="rivals-board"></div>
+        </section>
       </div>
-
-      <div id="rivals-board" class="rivals-board" aria-label="Rival collections"></div>
-
-      <div id="selecting-panel" class="selecting-panel" hidden>
-        <p class="selecting-heading"><span class="gavel" aria-hidden="true">&#128296;</span> YOUR AUCTION</p>
-        <div id="hand-cards" class="hand-cards"></div>
-      </div>
-
-      <div id="lot-caption" class="lot-caption">
-        <span id="artist-swatch" class="swatch"></span>
-        <span id="artist-name" class="lot-caption-name"></span>
-      </div>
-
-      <div class="stage" id="stage">
-        <button type="button" id="artwork-button" class="artwork" aria-label="Claim this artwork">
-          <svg id="artwork-svg" viewBox="0 0 100 100" aria-hidden="true"></svg>
-          <span id="outcome-tag" class="outcome-tag" hidden></span>
-          <span id="sold-banner" class="sold-banner" hidden></span>
-        </button>
-
-        <div class="price-rail" aria-live="off">
-          <span id="price-tag" class="price-tag">$0</span>
-        </div>
-      </div>
-
-      <div id="payment-flow" class="payment-flow" hidden></div>
-
-      <div id="collection-board" class="collection" aria-label="Collection"></div>
 
       <div id="end-screen" class="end-screen" hidden>
         <p id="end-result" class="end-result">WIN</p>

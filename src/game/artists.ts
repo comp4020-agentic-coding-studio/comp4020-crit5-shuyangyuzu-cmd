@@ -17,6 +17,6 @@ export interface Artist {
 export const ARTISTS: Artist[] = [
   { id: "vangogh", name: "Vincent van Gogh", color: "#f2b134", symbol: "diamond", initialValue: 80 },
   { id: "monet", name: "Claude Monet", color: "#4fa3d1", symbol: "circle", initialValue: 65 },
-  { id: "kandinsky", name: "Wassily Kandinsky", color: "#c74fd6", symbol: "triangle", initialValue: 50 },
+  { id: "kandinsky", name: "Wassily Kandinsky", color: "#9c5aa8", symbol: "triangle", initialValue: 50 },
   { id: "mondrian", name: "Piet Mondrian", color: "#e6453c", symbol: "square", initialValue: 35 },
 ];
