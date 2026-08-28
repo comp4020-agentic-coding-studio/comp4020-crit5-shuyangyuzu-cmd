@@ -4,6 +4,7 @@ export {
   createGame,
   tick,
   attemptPlayerClaim,
+  selectLotCard,
   computeResults,
   isPlayerWinner,
   STARTING_CASH,
@@ -12,6 +13,7 @@ export {
 export * from "./lots";
 export * from "./market";
 export * from "./npc";
+export * from "./payments";
 export * from "./pricing";
 export * from "./rng";
 export * from "./types";

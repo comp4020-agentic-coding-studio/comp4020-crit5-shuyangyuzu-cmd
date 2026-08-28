@@ -1,7 +1,7 @@
 import { ARTISTS } from "./artists";
 import { generateArtwork } from "./artwork";
 import { shuffle, type RngState } from "./rng";
-import type { LotBlueprint } from "./types";
+import { COLLECTOR_IDS, type CollectorId, type LotBlueprint } from "./types";
 
 export const LOT_COUNT = 12;
 export const AUCTION_DURATION_MS = 12_000;
@@ -29,4 +29,27 @@ export function generateLotBlueprints(state: RngState): { value: LotBlueprint[];
   }
 
   return { value: blueprints, state: s };
+}
+
+// AUCTIONEER mode: each collector's starting hand of lot cards, dealt
+// round-robin from the same shuffled sequence so artist variety is spread
+// evenly across every hand. A card in a hand is separate from that
+// collector's scored collection until someone actually buys it.
+export function dealHands(blueprints: LotBlueprint[]): Partial<Record<CollectorId, LotBlueprint[]>> {
+  const hands: Partial<Record<CollectorId, LotBlueprint[]>> = {};
+  for (const id of COLLECTOR_IDS) hands[id] = [];
+  blueprints.forEach((blueprint, i) => {
+    hands[COLLECTOR_IDS[i % COLLECTOR_IDS.length]]!.push(blueprint);
+  });
+  return hands;
+}
+
+// Fixed, visible rotation: YOU, TREND, VALUE, MOMENTUM repeated until every
+// collector has auctioneered exactly LOT_COUNT / COLLECTOR_IDS.length times.
+export function buildAuctioneerOrder(): CollectorId[] {
+  const order: CollectorId[] = [];
+  for (let round = 0; round < LOT_COUNT / COLLECTOR_IDS.length; round++) {
+    order.push(...COLLECTOR_IDS);
+  }
+  return order;
 }

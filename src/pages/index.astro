@@ -9,10 +9,19 @@ import Layout from "../layouts/Layout.astro";
   <header class="topbar">
     <nav aria-label="Primary">
       <a href="./" class="wordmark">GOING, GOING&hellip;</a>
+      <div class="mode-switch" role="group" aria-label="Game mode">
+        <button type="button" id="mode-house" class="mode-button" aria-pressed="true">HOUSE</button>
+        <button type="button" id="mode-auctioneer" class="mode-button" aria-pressed="false">AUCTIONEER</button>
+      </div>
     </nav>
   </header>
   <main id="app">
     <h1 class="visually-hidden">GOING, GOING&hellip;</h1>
+
+    <div id="auctioneer-banner" class="auctioneer-banner">
+      <span class="gavel" aria-hidden="true">&#128296;</span>
+      <span id="auctioneer-label">AUCTIONEER: HOUSE</span>
+    </div>
 
     <div class="networth">
       <span class="hud-label">NET WORTH = CASH + COLLECTION</span>
@@ -32,6 +41,11 @@ import Layout from "../layouts/Layout.astro";
     </div>
 
     <div id="rivals-board" class="rivals-board" aria-label="Rival collections"></div>
+
+    <div id="selecting-panel" class="selecting-panel" hidden>
+      <p class="selecting-heading"><span class="gavel" aria-hidden="true">&#128296;</span> YOUR AUCTION</p>
+      <div id="hand-cards" class="hand-cards"></div>
+    </div>
 
     <div id="lot-caption" class="lot-caption">
       <span id="artist-swatch" class="swatch"></span>
@@ -66,6 +80,8 @@ import Layout from "../layouts/Layout.astro";
         <span id="price-tag" class="price-tag">$0</span>
       </div>
     </div>
+
+    <div id="payment-flow" class="payment-flow" hidden></div>
 
     <div id="collection-board" class="collection" aria-label="Collection"></div>
 

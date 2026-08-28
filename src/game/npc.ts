@@ -2,7 +2,7 @@ import { ARTISTS } from "./artists";
 import type { Market } from "./market";
 import { priceAtTime, timeForPrice } from "./pricing";
 import { nextRandom, nextRange, type RngState } from "./rng";
-import type { Lot, NpcId } from "./types";
+import type { Lot, LotBlueprint, NpcId } from "./types";
 
 // Three simple, explainable rules rather than any learned or lookahead
 // strategy: each NPC has a preferred fraction of the auction's fall it's
@@ -76,4 +76,14 @@ export function computeNpcTrigger(
   }
 
   return { value: Math.max(0, Math.min(lot.durationMs, triggerMs)), state: s };
+}
+
+// AUCTIONEER mode's deterministic auctioneer strategy: offer the card whose
+// artist currently commands the highest market value first, maximising
+// expected proceeds. Ties keep the first-held card, so it's stable under a
+// seed.
+export function pickAuctioneerCard(hand: LotBlueprint[], market: Market): LotBlueprint {
+  return hand.reduce((best, candidate) =>
+    market[candidate.artistId] > market[best.artistId] ? candidate : best,
+  );
 }

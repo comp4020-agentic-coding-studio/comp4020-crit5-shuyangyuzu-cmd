@@ -6,6 +6,8 @@ export type CollectorId = "player" | NpcId;
 export const NPC_IDS: NpcId[] = ["trend", "value", "momentum"];
 export const COLLECTOR_IDS: CollectorId[] = ["player", ...NPC_IDS];
 
+export type GameMode = "house" | "auctioneer";
+
 export interface Collector {
   id: CollectorId;
   name: string;
@@ -57,12 +59,14 @@ export interface LotOutcome {
   lotIndex: number;
   artistId: ArtistId;
   winner: CollectorId | null;
+  auctioneer: CollectorId | "house";
+  paymentTo: CollectorId | "bank";
   price: number;
   saleKind: SaleKind;
   saleAtMs: number | null;
 }
 
-export type GamePhase = "auction" | "sold-pause" | "finished";
+export type GamePhase = "auction" | "sold-pause" | "selecting" | "finished";
 
 export interface RankedResult {
   id: CollectorId;

@@ -5,13 +5,14 @@ import {
   computeResults,
   createGame,
   isPlayerWinner,
+  selectLotCard,
   tick,
   type GameState,
 } from "../game/engine";
 import { LOT_COUNT } from "../game/lots";
 import { portfolioValue } from "../game/market";
 import { priceAtTime } from "../game/pricing";
-import { NPC_IDS, type ArtworkShape, type CollectorId, type LotOutcome, type NpcId } from "../game/types";
+import { NPC_IDS, type ArtworkShape, type CollectorId, type GameMode, type LotOutcome, type NpcId } from "../game/types";
 import { buildPublicView } from "../game/view";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -25,12 +26,21 @@ const COLLECTOR_LABELS: Record<CollectorId, string> = {
   momentum: "MOMENTUM",
 };
 
+function auctioneerLabel(auctioneer: CollectorId | "house"): string {
+  return auctioneer === "house" ? "HOUSE" : COLLECTOR_LABELS[auctioneer];
+}
+
 const els = {
+  modeHouse: document.getElementById("mode-house")! as HTMLButtonElement,
+  modeAuctioneer: document.getElementById("mode-auctioneer")! as HTMLButtonElement,
+  auctioneerLabel: document.getElementById("auctioneer-label")!,
   netWorthFormula: document.getElementById("net-worth-formula")!,
   cash: document.getElementById("player-cash")!,
   marketBoard: document.getElementById("market-board")!,
   lotCounter: document.getElementById("lot-counter")!,
   rivalsBoard: document.getElementById("rivals-board")!,
+  selectingPanel: document.getElementById("selecting-panel")!,
+  handCards: document.getElementById("hand-cards")!,
   lotCaption: document.getElementById("lot-caption")!,
   artistSwatch: document.getElementById("artist-swatch")!,
   artistName: document.getElementById("artist-name")!,
@@ -39,6 +49,7 @@ const els = {
   outcomeTag: document.getElementById("outcome-tag")!,
   soldBanner: document.getElementById("sold-banner")!,
   priceTag: document.getElementById("price-tag")!,
+  paymentFlow: document.getElementById("payment-flow")!,
   collectionBoard: document.getElementById("collection-board")!,
   stage: document.getElementById("stage")! as HTMLElement,
   endScreen: document.getElementById("end-screen")!,
@@ -66,7 +77,8 @@ function seedFromClock(): number {
 const sessionStart = performance.now();
 const elapsed = () => performance.now() - sessionStart;
 
-let state: GameState = createGame(seedFromClock(), elapsed());
+let mode: GameMode = "house";
+let state: GameState = createGame(seedFromClock(), mode, elapsed());
 let renderedLotIndex = -1;
 const lastMarketValues = new Map<string, number>();
 
@@ -218,10 +230,12 @@ function renderRivalsBoard() {
     if (entry.id === "player") continue;
     const row = document.createElement("div");
     row.className = "rival-row";
+    const isAuctioneer = entry.id === state.currentAuctioneer;
+    row.classList.toggle("rival-row-auctioneer", isAuctioneer);
 
     const name = document.createElement("span");
     name.className = "rival-name";
-    name.textContent = entry.name;
+    name.textContent = isAuctioneer ? `\u{1F528} ${entry.name}` : entry.name;
     row.appendChild(name);
 
     const holdingsWrap = document.createElement("span");
@@ -264,6 +278,30 @@ function renderClaimTracks(relativeMs: number) {
   }
 }
 
+function renderHandCards() {
+  els.handCards.replaceChildren();
+  const hand = state.hands.player ?? [];
+  hand.forEach((card, i) => {
+    const artist = ARTISTS.find((a) => a.id === card.artistId)!;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "hand-card";
+    btn.style.setProperty("--artist-color", artist.color);
+    const swatch = document.createElement("span");
+    swatch.className = `swatch swatch-${artist.symbol}`;
+    btn.appendChild(swatch);
+    const name = document.createElement("span");
+    name.className = "hand-card-name";
+    name.textContent = artist.name;
+    btn.appendChild(name);
+    btn.addEventListener("click", () => {
+      state = selectLotCard(state, i, elapsed());
+      render();
+    });
+    els.handCards.appendChild(btn);
+  });
+}
+
 function outcomeTagText(kind: LotOutcome["saleKind"]): string {
   if (kind === "premium") return "PREMIUM +15";
   if (kind === "discount") return "DISCOUNT −5";
@@ -272,7 +310,15 @@ function outcomeTagText(kind: LotOutcome["saleKind"]): string {
 
 function soldBannerText(outcome: LotOutcome): string {
   if (outcome.winner === null) return "UNSOLD";
-  return `SOLD TO ${COLLECTOR_LABELS[outcome.winner]} · $${outcome.price}`;
+  return `SOLD TO ${outcome.winner === "player" ? "YOU" : COLLECTOR_LABELS[outcome.winner]} · $${outcome.price}`;
+}
+
+function paymentFlowText(outcome: LotOutcome): string {
+  const buyer = outcome.winner;
+  if (buyer === null) return "";
+  const buyerLabel = buyer === "player" ? "YOU" : COLLECTOR_LABELS[buyer];
+  const destLabel = outcome.paymentTo === "bank" ? "BANK" : outcome.paymentTo === "player" ? "YOU" : COLLECTOR_LABELS[outcome.paymentTo];
+  return `PAYMENT: ${buyerLabel} → ${destLabel}`;
 }
 
 function renderEndScreen() {
@@ -299,15 +345,21 @@ function renderEndScreen() {
   }
   els.endScreen.hidden = false;
   els.stage.hidden = true;
+  els.selectingPanel.hidden = true;
+  els.paymentFlow.hidden = true;
   els.lotCaption.hidden = true;
 }
 
 function render() {
+  els.modeHouse.setAttribute("aria-pressed", String(mode === "house"));
+  els.modeAuctioneer.setAttribute("aria-pressed", String(mode === "auctioneer"));
+
+  els.auctioneerLabel.textContent = `AUCTIONEER: ${auctioneerLabel(state.currentAuctioneer)}`;
   renderNetWorth();
   renderRivalsBoard();
 
   els.cash.textContent = `$${state.collectors.player.cash}`;
-  els.lotCounter.textContent = `${Math.min(state.currentLotIndex + 1, LOT_COUNT)} / ${LOT_COUNT}`;
+  els.lotCounter.textContent = `${Math.min(state.currentTurnIndex + 1, LOT_COUNT)} / ${LOT_COUNT}`;
   renderMarketBoard();
   renderCollection();
 
@@ -317,6 +369,17 @@ function render() {
   }
 
   els.endScreen.hidden = true;
+
+  if (state.phase === "selecting") {
+    els.selectingPanel.hidden = false;
+    els.stage.hidden = true;
+    els.paymentFlow.hidden = true;
+    els.lotCaption.hidden = true;
+    renderHandCards();
+    return;
+  }
+
+  els.selectingPanel.hidden = true;
   els.stage.hidden = false;
 
   const lot = state.currentLot;
@@ -331,6 +394,7 @@ function render() {
   if (state.phase === "auction" && lot) {
     els.soldBanner.hidden = true;
     els.outcomeTag.hidden = true;
+    els.paymentFlow.hidden = true;
     els.artworkButton.disabled = false;
     els.artworkButton.classList.remove("artwork-sold");
     const price = priceAtTime(lot, relativeMs);
@@ -348,6 +412,13 @@ function render() {
       els.outcomeTag.textContent = outcomeTagText(outcome.saleKind);
       els.outcomeTag.className = `outcome-tag outcome-tag-${outcome.saleKind}`;
       els.outcomeTag.hidden = false;
+
+      if (outcome.winner !== null) {
+        els.paymentFlow.textContent = paymentFlowText(outcome);
+        els.paymentFlow.hidden = false;
+      } else {
+        els.paymentFlow.hidden = true;
+      }
     }
     renderClaimTracks(lot ? lot.durationMs : 0);
   }
@@ -359,16 +430,25 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+function restart(nextMode: GameMode) {
+  mode = nextMode;
+  state = createGame(seedFromClock(), nextMode, elapsed());
+  renderedLotIndex = -1;
+  lastMarketValues.clear();
+  render();
+}
+
 els.artworkButton.addEventListener("click", () => {
   state = attemptPlayerClaim(state, elapsed());
   render();
 });
 
-els.playAgain.addEventListener("click", () => {
-  state = createGame(seedFromClock(), elapsed());
-  renderedLotIndex = -1;
-  lastMarketValues.clear();
-  render();
+els.playAgain.addEventListener("click", () => restart(mode));
+els.modeHouse.addEventListener("click", () => {
+  if (mode !== "house") restart("house");
+});
+els.modeAuctioneer.addEventListener("click", () => {
+  if (mode !== "auctioneer") restart("auctioneer");
 });
 
 render();

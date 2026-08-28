@@ -1,16 +1,55 @@
 import { describe, expect, it } from "vitest";
-import { attemptPlayerClaim, computeResults, createGame, isPlayerWinner, tick, type GameState } from "../src/game/engine";
+import {
+  attemptPlayerClaim,
+  computeResults,
+  createGame,
+  isPlayerWinner,
+  selectLotCard,
+  tick,
+  type GameState,
+} from "../src/game/engine";
+import { LOT_COUNT } from "../src/game/lots";
 import { createMarket, resolveSale, resolveUnsold } from "../src/game/market";
-import { COLLECTOR_IDS } from "../src/game/types";
+import { applyPayment, paymentDestination } from "../src/game/payments";
+import { COLLECTOR_IDS, NPC_IDS, type Collector, type CollectorId, type GameMode } from "../src/game/types";
 import { buildPublicView } from "../src/game/view";
 
 // This week's contract tests answer the C5 playtest revision: outcome-driven
-// market movement replaces the old fixed growth rate, and there is no forced
-// floor sale — an auction can now genuinely go UNSOLD.
+// market movement (no fixed growth rate, no forced floor sale), the payment
+// rules for both HOUSE and AUCTIONEER mode, and the structural privacy
+// guarantee that hides rival finances until the game ends.
+
+function baseCollectors(): Record<CollectorId, Collector> {
+  const collectors = {} as Record<CollectorId, Collector>;
+  for (const id of COLLECTOR_IDS) {
+    collectors[id] = { id, name: id, cash: 500, holdings: {} };
+  }
+  return collectors;
+}
+
+// Drives a game to completion by always claiming a hand card immediately
+// (when the player is auctioneer) and otherwise advancing the clock in fixed
+// steps. This never leans on any NPC choosing to bid — an auction with no
+// claimant at all still resolves, via UNSOLD, once its duration elapses.
+function playToFinish(seed: number, mode: GameMode): GameState {
+  let state = createGame(seed, mode);
+  let clock = 0;
+  let guard = 0;
+  while (state.phase !== "finished" && guard < 20_000) {
+    guard++;
+    if (state.phase === "selecting") {
+      state = selectLotCard(state, 0, clock);
+      continue;
+    }
+    clock += 25;
+    state = tick(state, clock);
+  }
+  return state;
+}
 
 describe("a lot belongs to its first successful claimant only", () => {
   it("sells to whichever bidder's claim is due first, and rejects every later claim on that lot", () => {
-    const base = createGame(42);
+    const base = createGame(42, "house");
     const lot = base.currentLot!;
     // Override the triggers directly so this test is deterministic
     // regardless of whether seed 42 happens to produce an interested NPC.
@@ -69,7 +108,7 @@ describe("market resolution", () => {
   });
 
   it("UNSOLD transfers no artwork or cash and decreases the artist by $15", () => {
-    const base = createGame(5);
+    const base = createGame(5, "house");
     const lot = base.currentLot!;
     const game: GameState = { ...base, npcTriggers: { trend: null, value: null, momentum: null } };
 
@@ -97,6 +136,77 @@ describe("market resolution", () => {
   });
 });
 
+describe("payments", () => {
+  it("HOUSE purchases pay the bank", () => {
+    const collectors = baseCollectors();
+    const next = applyPayment(collectors, "player", "house", 50);
+    expect(next.player.cash).toBe(collectors.player.cash - 50);
+    for (const id of NPC_IDS) expect(next[id].cash).toBe(collectors[id].cash);
+    expect(paymentDestination("player", "house")).toBe("bank");
+  });
+
+  it("in AUCTIONEER mode, a non-auctioneer buyer pays the auctioneer", () => {
+    const collectors = baseCollectors();
+    const next = applyPayment(collectors, "player", "trend", 50);
+    expect(next.player.cash).toBe(collectors.player.cash - 50);
+    expect(next.trend.cash).toBe(collectors.trend.cash + 50);
+    expect(paymentDestination("player", "trend")).toBe("trend");
+  });
+
+  it("an auctioneer buying their own lot pays the bank rather than themselves", () => {
+    const collectors = baseCollectors();
+    const next = applyPayment(collectors, "trend", "trend", 50);
+    expect(next.trend.cash).toBe(collectors.trend.cash - 50);
+    expect(paymentDestination("trend", "trend")).toBe("bank");
+  });
+});
+
+describe("every artwork is resolved exactly once", () => {
+  it("in HOUSE mode", () => {
+    const finished = playToFinish(101, "house");
+    expect(finished.phase).toBe("finished");
+    expect(finished.outcomes).toHaveLength(LOT_COUNT);
+    expect(new Set(finished.outcomes.map((o) => o.lotIndex)).size).toBe(LOT_COUNT);
+  });
+
+  it("in AUCTIONEER mode", () => {
+    const finished = playToFinish(102, "auctioneer");
+    expect(finished.phase).toBe("finished");
+    expect(finished.outcomes).toHaveLength(LOT_COUNT);
+    expect(new Set(finished.outcomes.map((o) => o.lotIndex)).size).toBe(LOT_COUNT);
+  });
+});
+
+describe("rival financial privacy", () => {
+  it("does not expose rival cash or net worth before the game finishes", () => {
+    const game = createGame(9, "house");
+    const view = buildPublicView(game);
+
+    for (const entry of view.collectors) {
+      if (entry.id === "player") continue;
+      expect("cash" in entry).toBe(false);
+      expect("netWorth" in entry).toBe(false);
+      expect("collectionValue" in entry).toBe(false);
+      expect(entry.holdings).toBeDefined();
+    }
+
+    const player = view.collectors.find((c) => c.id === "player")!;
+    expect(player.cash).toBe(game.collectors.player.cash);
+  });
+
+  it("reveals every collector's finances once the game finishes", () => {
+    const finished = playToFinish(21, "house");
+    const view = buildPublicView(finished);
+
+    expect(view.finished).toBe(true);
+    for (const entry of view.collectors) {
+      expect(entry.cash).toBeDefined();
+      expect(entry.netWorth).toBeDefined();
+      expect(entry.netWorth).toBe((entry.cash ?? 0) + (entry.collectionValue ?? 0));
+    }
+  });
+});
+
 describe("final net worth", () => {
   it("equals remaining cash plus holdings valued at final market prices", () => {
     const base = createGame(1);
@@ -118,50 +228,6 @@ describe("final net worth", () => {
 
     expect(player.wealth).toBe(200 + 2 * 120);
     expect(valueCollector.wealth).toBe(50 + 150 + 90);
-  });
-});
-
-describe("rival financial privacy", () => {
-  it("hides rival cash and net worth during play, and reveals every collector's once the game finishes", () => {
-    let state: GameState = createGame(11);
-    let elapsedMs = 0;
-    let checkedMidGame = false;
-
-    while (state.phase !== "finished") {
-      elapsedMs += 250;
-      state = tick(state, elapsedMs);
-
-      if (!checkedMidGame && state.outcomes.length > 0 && state.phase !== "finished") {
-        checkedMidGame = true;
-        const view = buildPublicView(state);
-        expect(view.finished).toBe(false);
-
-        const player = view.collectors.find((c) => c.id === "player")!;
-        expect(player.cash).toBeDefined();
-        expect(player.collectionValue).toBeDefined();
-        expect(player.netWorth).toBeDefined();
-
-        for (const id of COLLECTOR_IDS) {
-          if (id === "player") continue;
-          const rival = view.collectors.find((c) => c.id === id)!;
-          expect(rival.holdings).toBeDefined();
-          expect("cash" in rival).toBe(false);
-          expect("collectionValue" in rival).toBe(false);
-          expect("netWorth" in rival).toBe(false);
-        }
-      }
-    }
-
-    expect(checkedMidGame).toBe(true);
-
-    const finalView = buildPublicView(state);
-    expect(finalView.finished).toBe(true);
-    for (const id of COLLECTOR_IDS) {
-      const collector = finalView.collectors.find((c) => c.id === id)!;
-      expect(collector.cash).toBeDefined();
-      expect(collector.collectionValue).toBeDefined();
-      expect(collector.netWorth).toBeDefined();
-    }
   });
 });
 
