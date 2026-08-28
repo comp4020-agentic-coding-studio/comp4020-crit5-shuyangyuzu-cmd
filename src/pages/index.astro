@@ -85,6 +85,12 @@ import Layout from "../layouts/Layout.astro";
           </div>
 
           <div id="payment-flow" class="payment-flow" hidden></div>
+
+          <div id="end-screen" class="end-screen" hidden>
+            <p id="end-result" class="end-result">WIN</p>
+            <ol id="ranking-list" class="ranking-list"></ol>
+            <button type="button" id="play-again" class="play-again">PLAY AGAIN</button>
+          </div>
         </div>
 
         <section class="panel panel-ledger" aria-labelledby="ledger-panel-title">
@@ -106,16 +112,10 @@ import Layout from "../layouts/Layout.astro";
           <div id="collection-board" class="collection"></div>
         </section>
 
-        <section class="panel panel-rivals" aria-labelledby="rivals-panel-title">
+        <section id="panel-rivals" class="panel panel-rivals" aria-labelledby="rivals-panel-title">
           <h2 id="rivals-panel-title" class="panel-title">COLLECTORS</h2>
           <div id="rivals-board" class="rivals-board"></div>
         </section>
-      </div>
-
-      <div id="end-screen" class="end-screen" hidden>
-        <p id="end-result" class="end-result">WIN</p>
-        <ol id="ranking-list" class="ranking-list"></ol>
-        <button type="button" id="play-again" class="play-again">PLAY AGAIN</button>
       </div>
 
       <div id="npc-dock" class="npc-dock" hidden aria-label="Collector interest"></div>

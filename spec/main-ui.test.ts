@@ -24,12 +24,16 @@ function buildDom() {
     <div id="game-screen" hidden></div>
     <button id="mode-house" aria-pressed="true"></button>
     <button id="mode-auctioneer" aria-pressed="false"></button>
-    <div id="auctioneer-label"></div>
+    <div id="auctioneer-banner">
+      <div id="auctioneer-label"></div>
+    </div>
     <div id="net-worth-formula"></div>
     <div id="player-cash"></div>
     <div id="market-board"></div>
     <div id="lot-counter"></div>
-    <div id="rivals-board"></div>
+    <div id="panel-rivals">
+      <div id="rivals-board"></div>
+    </div>
     <div id="selecting-panel" hidden>
       <div id="hand-cards"></div>
     </div>

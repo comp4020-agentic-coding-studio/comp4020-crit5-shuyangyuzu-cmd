@@ -40,11 +40,13 @@ const els = {
   readyScreen: document.getElementById("ready-screen")! as HTMLElement,
   gameScreen: document.getElementById("game-screen")! as HTMLElement,
   enterAuction: document.getElementById("enter-auction")! as HTMLButtonElement,
+  auctioneerBanner: document.getElementById("auctioneer-banner")!,
   auctioneerLabel: document.getElementById("auctioneer-label")!,
   netWorthFormula: document.getElementById("net-worth-formula")!,
   cash: document.getElementById("player-cash")!,
   marketBoard: document.getElementById("market-board")!,
   lotCounter: document.getElementById("lot-counter")!,
+  panelRivals: document.getElementById("panel-rivals")!,
   rivalsBoard: document.getElementById("rivals-board")!,
   selectingPanel: document.getElementById("selecting-panel")!,
   handCards: document.getElementById("hand-cards")!,
@@ -593,7 +595,13 @@ function renderEndScreen() {
 
     els.rankingList.appendChild(item);
   }
+  // Playtest findings #1/#2: the finished screen must not keep showing the
+  // collector-interest panel or any remnant of the last live auction — the
+  // scoreboard replaces the artwork/stage area rather than appearing below
+  // it, so every other stage/auctioneer/rivals element is hidden here.
   els.endScreen.hidden = false;
+  els.auctioneerBanner.hidden = true;
+  els.panelRivals.hidden = true;
   els.stage.hidden = true;
   els.selectingPanel.hidden = true;
   els.paymentFlow.hidden = true;
@@ -619,6 +627,8 @@ function render() {
 
   setNpcDockVisible(true);
   els.endScreen.hidden = true;
+  els.auctioneerBanner.hidden = false;
+  els.panelRivals.hidden = false;
 
   if (state.phase === "selecting") {
     els.selectingPanel.hidden = false;
