@@ -59,6 +59,7 @@ function buildDom() {
     </div>
     <div id="payment-flow" hidden></div>
     <div id="collection-board"></div>
+    <div id="npc-dock" hidden></div>
     <div id="end-screen" hidden>
       <p id="end-result"></p>
       <ol id="ranking-list"></ol>

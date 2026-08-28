@@ -73,6 +73,7 @@ const els = {
   rankingList: document.getElementById("ranking-list")!,
   playAgain: document.getElementById("play-again")! as HTMLButtonElement,
   readyArtworkCanvas: document.getElementById("ready-artwork-canvas")! as HTMLCanvasElement,
+  npcDock: document.getElementById("npc-dock")! as HTMLElement,
 };
 
 interface CollectorPanelEls {
@@ -159,6 +160,70 @@ function buildRivalPanels() {
 }
 
 buildRivalPanels();
+
+const dockPanels = {} as Record<NpcId, CollectorPanelEls>;
+
+// Playtest finding #7: on mobile the NPC INTEREST meters used to live only
+// inside the COLLECTORS panel at the bottom of the page, below the fold
+// during the exact moment a player is deciding whether to bid. This builds
+// a second, compact copy of the same three panels as a fixed-position dock
+// (CSS hides it above the 900px breakpoint, where the full COLLECTORS panel
+// is already on-screen) — built once, for the same reason buildRivalPanels()
+// is built once above.
+function buildNpcDock() {
+  els.npcDock.replaceChildren();
+  for (const npcId of NPC_IDS) {
+    const root = document.createElement("div");
+    root.className = "npc-dock-column";
+    root.style.setProperty("--collector-color", NPC_COLOR[npcId]);
+
+    const name = document.createElement("span");
+    name.className = "npc-dock-name";
+    name.textContent = NPC_NAMES[npcId].split(" ")[0];
+    root.appendChild(name);
+
+    const auctioneerFlag = document.createElement("span");
+    auctioneerFlag.className = "npc-dock-auctioneer-flag";
+    auctioneerFlag.textContent = "AUC";
+    auctioneerFlag.hidden = true;
+    root.appendChild(auctioneerFlag);
+
+    const meter = document.createElement("span");
+    meter.className = "npc-dock-meter collector-meter-inactive";
+    meter.setAttribute("aria-hidden", "true");
+    const meterFill = document.createElement("span");
+    meterFill.className = "collector-meter-fill";
+    meter.appendChild(meterFill);
+    root.appendChild(meter);
+
+    const holdings = document.createElement("div");
+    holdings.className = "npc-dock-holdings";
+    const tileCounts: Partial<Record<string, HTMLElement>> = {};
+    for (const artist of ARTISTS) {
+      const tile = document.createElement("span");
+      tile.className = "npc-dock-tile";
+      tile.style.setProperty("--artist-color", artist.color);
+      const swatch = document.createElement("span");
+      swatch.className = `swatch swatch-${artist.symbol}`;
+      tile.appendChild(swatch);
+      const count = document.createElement("span");
+      count.textContent = "0";
+      tile.appendChild(count);
+      holdings.appendChild(tile);
+      tileCounts[artist.id] = count;
+    }
+    root.appendChild(holdings);
+
+    els.npcDock.appendChild(root);
+    dockPanels[npcId] = { root, auctioneerFlag, tileCounts, meter, meterFill };
+  }
+}
+
+buildNpcDock();
+
+function collectorPanelsFor(npcId: NpcId): CollectorPanelEls[] {
+  return [rivalPanels[npcId], dockPanels[npcId]];
+}
 
 function seedFromClock(): number {
   return Math.floor(performance.now() * 1000 + Date.now()) % 2147483647;
@@ -280,6 +345,14 @@ function hideBidAffordance() {
   els.bidMarketCompare.hidden = true;
 }
 
+// Playtest finding #7: the mobile NPC-interest dock must be hidden on the
+// landing and finished screens and visible for every other phase, per
+// Section 6 of the spec.
+function setNpcDockVisible(visible: boolean) {
+  els.npcDock.hidden = !visible;
+  document.body.classList.toggle("has-npc-dock", visible);
+}
+
 function renderMarketBoard() {
   els.marketBoard.replaceChildren();
   for (const artist of ARTISTS) {
@@ -375,14 +448,15 @@ function updateRivalPanels() {
   for (const entry of view.collectors) {
     if (entry.id === "player") continue;
     const npcId = entry.id;
-    const panel = rivalPanels[npcId];
     const isAuctioneer = entry.id === state.currentAuctioneer;
-    panel.root.classList.toggle("collector-panel-auctioneer", isAuctioneer);
-    panel.auctioneerFlag.hidden = !isAuctioneer;
-    for (const artist of ARTISTS) {
-      const count = entry.holdings[artist.id] ?? 0;
-      const el = panel.tileCounts[artist.id];
-      if (el) el.textContent = String(count);
+    for (const panel of collectorPanelsFor(npcId)) {
+      panel.root.classList.toggle("collector-panel-auctioneer", isAuctioneer);
+      panel.auctioneerFlag.hidden = !isAuctioneer;
+      for (const artist of ARTISTS) {
+        const count = entry.holdings[artist.id] ?? 0;
+        const el = panel.tileCounts[artist.id];
+        if (el) el.textContent = String(count);
+      }
     }
   }
 }
@@ -394,19 +468,20 @@ function updateRivalPanels() {
 // buy".
 function updateRivalMeters(relativeMs: number) {
   for (const npcId of NPC_IDS) {
-    const panel = rivalPanels[npcId];
     const triggerMs = state.npcTriggers[npcId];
-    if (triggerMs == null) {
-      panel.meterFill.style.setProperty("--fill", "0");
-      panel.meter.classList.add("collector-meter-inactive");
-      panel.meter.classList.remove("collector-meter-near-full", "collector-meter-arrived");
-      continue;
+    for (const panel of collectorPanelsFor(npcId)) {
+      if (triggerMs == null) {
+        panel.meterFill.style.setProperty("--fill", "0");
+        panel.meter.classList.add("collector-meter-inactive");
+        panel.meter.classList.remove("collector-meter-near-full", "collector-meter-arrived");
+        continue;
+      }
+      panel.meter.classList.remove("collector-meter-inactive");
+      const progress = Math.max(0, Math.min(1, relativeMs / Math.max(1, triggerMs)));
+      panel.meterFill.style.setProperty("--fill", String(progress));
+      panel.meter.classList.toggle("collector-meter-near-full", progress >= 0.85 && progress < 1);
+      panel.meter.classList.toggle("collector-meter-arrived", progress >= 1);
     }
-    panel.meter.classList.remove("collector-meter-inactive");
-    const progress = Math.max(0, Math.min(1, relativeMs / Math.max(1, triggerMs)));
-    panel.meterFill.style.setProperty("--fill", String(progress));
-    panel.meter.classList.toggle("collector-meter-near-full", progress >= 0.85 && progress < 1);
-    panel.meter.classList.toggle("collector-meter-arrived", progress >= 1);
   }
 }
 
@@ -414,10 +489,11 @@ function updateRivalMeters(relativeMs: number) {
 // to auction) — nothing should read as "approaching a purchase".
 function resetRivalMeters() {
   for (const npcId of NPC_IDS) {
-    const panel = rivalPanels[npcId];
-    panel.meterFill.style.setProperty("--fill", "0");
-    panel.meter.classList.add("collector-meter-inactive");
-    panel.meter.classList.remove("collector-meter-near-full", "collector-meter-arrived");
+    for (const panel of collectorPanelsFor(npcId)) {
+      panel.meterFill.style.setProperty("--fill", "0");
+      panel.meter.classList.add("collector-meter-inactive");
+      panel.meter.classList.remove("collector-meter-near-full", "collector-meter-arrived");
+    }
   }
 }
 
@@ -536,10 +612,12 @@ function render() {
   renderCollection();
 
   if (state.phase === "finished") {
+    setNpcDockVisible(false);
     renderEndScreen();
     return;
   }
 
+  setNpcDockVisible(true);
   els.endScreen.hidden = true;
 
   if (state.phase === "selecting") {
@@ -648,6 +726,7 @@ function returnToReady() {
   running = false;
   els.gameScreen.hidden = true;
   els.readyScreen.hidden = false;
+  setNpcDockVisible(false);
 }
 
 function setMode(nextMode: GameMode) {
