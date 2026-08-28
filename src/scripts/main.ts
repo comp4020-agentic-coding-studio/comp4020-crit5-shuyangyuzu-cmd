@@ -38,6 +38,9 @@ function auctioneerLabel(auctioneer: CollectorId | "house"): string {
 const els = {
   modeHouse: document.getElementById("mode-house")! as HTMLButtonElement,
   modeAuctioneer: document.getElementById("mode-auctioneer")! as HTMLButtonElement,
+  readyScreen: document.getElementById("ready-screen")! as HTMLElement,
+  gameScreen: document.getElementById("game-screen")! as HTMLElement,
+  enterAuction: document.getElementById("enter-auction")! as HTMLButtonElement,
   auctioneerLabel: document.getElementById("auctioneer-label")!,
   netWorthFormula: document.getElementById("net-worth-formula")!,
   cash: document.getElementById("player-cash")!,
@@ -156,7 +159,15 @@ const sessionStart = performance.now();
 const elapsed = () => performance.now() - sessionStart;
 
 let mode: GameMode = "house";
-let state: GameState = createGame(seedFromClock(), mode, elapsed());
+// No GameState exists, and no rAF loop runs, until ENTER AUCTION is clicked
+// (see enterAuction() below) — this is what keeps the auction clock, NPC
+// triggers and price countdown from starting before the player is ready.
+// TypeScript's definite-assignment analysis is intraprocedural, so an
+// uninitialised module-scope `let` read only from inside functions that are
+// never called before enterAuction() assigns it is not flagged; every read
+// of `state` below happens inside such a function.
+let state: GameState;
+let running = false;
 let renderedLotIndex = -1;
 const lastMarketValues = new Map<string, number>();
 
@@ -441,9 +452,6 @@ function renderEndScreen() {
 }
 
 function render() {
-  els.modeHouse.setAttribute("aria-pressed", String(mode === "house"));
-  els.modeAuctioneer.setAttribute("aria-pressed", String(mode === "auctioneer"));
-
   els.auctioneerLabel.textContent = `AUCTIONEER: ${auctioneerLabel(state.currentAuctioneer)}`;
   renderNetWorth();
   updateRivalPanels();
@@ -516,11 +524,37 @@ function render() {
 }
 
 function loop() {
+  // `running` is cleared by returnToReady() when the player switches modes
+  // mid- or post-game; returning here (instead of always rescheduling) is
+  // what actually stops the auction clock rather than just hiding it.
+  if (!running) return;
   state = tick(state, elapsed());
   render();
   requestAnimationFrame(loop);
 }
 
+function updateModeButtons() {
+  els.modeHouse.setAttribute("aria-pressed", String(mode === "house"));
+  els.modeAuctioneer.setAttribute("aria-pressed", String(mode === "auctioneer"));
+}
+
+// The one place a GameState is created for a brand-new game. Called by the
+// ENTER AUCTION button (from the ready screen) and never at module load.
+function enterAuction() {
+  state = createGame(seedFromClock(), mode, elapsed());
+  renderedLotIndex = -1;
+  lastMarketValues.clear();
+  els.readyScreen.hidden = true;
+  els.gameScreen.hidden = false;
+  running = true;
+  render();
+  requestAnimationFrame(loop);
+}
+
+// PLAY AGAIN: a fresh seed and fresh NPC profiles in the mode already
+// chosen, starting immediately — unlike a mode switch, this does not route
+// back through the ready screen. `running` is already true here, since the
+// loop keeps ticking harmlessly through the finished phase.
 function restart(nextMode: GameMode) {
   mode = nextMode;
   state = createGame(seedFromClock(), nextMode, elapsed());
@@ -529,18 +563,31 @@ function restart(nextMode: GameMode) {
   render();
 }
 
+// Switching modes returns to a calm ready state rather than immediately
+// starting a new timed auction — whether the switch happens before a game
+// (still on the ready screen, nothing to stop), mid-game, or after one has
+// finished (the loop is still ticking through the finished phase).
+function returnToReady() {
+  running = false;
+  els.gameScreen.hidden = true;
+  els.readyScreen.hidden = false;
+}
+
+function setMode(nextMode: GameMode) {
+  if (mode === nextMode) return;
+  mode = nextMode;
+  updateModeButtons();
+  if (running) returnToReady();
+}
+
 els.artworkButton.addEventListener("click", () => {
   state = attemptPlayerClaim(state, elapsed());
   render();
 });
 
 els.playAgain.addEventListener("click", () => restart(mode));
-els.modeHouse.addEventListener("click", () => {
-  if (mode !== "house") restart("house");
-});
-els.modeAuctioneer.addEventListener("click", () => {
-  if (mode !== "auctioneer") restart("auctioneer");
-});
+els.modeHouse.addEventListener("click", () => setMode("house"));
+els.modeAuctioneer.addEventListener("click", () => setMode("auctioneer"));
+els.enterAuction.addEventListener("click", () => enterAuction());
 
-render();
-requestAnimationFrame(loop);
+updateModeButtons();

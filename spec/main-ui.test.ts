@@ -17,6 +17,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 function buildDom() {
   document.body.innerHTML = `
+    <div id="ready-screen">
+      <button type="button" id="enter-auction"></button>
+    </div>
+    <div id="game-screen" hidden></div>
     <button id="mode-house" aria-pressed="true"></button>
     <button id="mode-auctioneer" aria-pressed="false"></button>
     <div id="auctioneer-label"></div>
@@ -79,8 +83,11 @@ describe("AUCTIONEER hand-card buttons survive many render frames before a click
 
     await import("../src/scripts/main.ts");
 
-    // Switch into AUCTIONEER mode, as a player would from the mode switch.
+    // Switch into AUCTIONEER mode, as a player would from the mode switch,
+    // then press ENTER AUCTION as a player would from the ready screen —
+    // no game exists, and no render loop runs, until that click.
     document.getElementById("mode-auctioneer")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.getElementById("enter-auction")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     const handCards = document.getElementById("hand-cards")!;
     expect(handCards.children).toHaveLength(3);
@@ -102,5 +109,80 @@ describe("AUCTIONEER hand-card buttons survive many render frames before a click
     // the auction stage becomes the visible surface.
     expect(document.getElementById("selecting-panel")!.hidden).toBe(true);
     expect(document.getElementById("stage")!.hidden).toBe(false);
+  });
+});
+
+// This week's playtest finding #5: the auction must not start — clock,
+// timers, NPC triggers — before the player is ready. These tests check the
+// gating mechanism itself (no GameState/loop before ENTER AUCTION; a mode
+// switch drops back to a fresh ready state) rather than just the visible
+// screen, since a hidden-but-still-ticking loop would satisfy a purely
+// visual check while still violating the finding.
+describe("the ready screen gates the auction clock", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    buildDom();
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })),
+    });
+  });
+
+  it("creates no game and starts no render loop until ENTER AUCTION is clicked", async () => {
+    const frame: { callback: FrameRequestCallback | null } = { callback: null };
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      frame.callback = cb;
+      return 1;
+    });
+
+    await import("../src/scripts/main.ts");
+
+    expect(frame.callback).toBeNull();
+    expect(document.getElementById("ready-screen")!.hidden).toBe(false);
+    expect(document.getElementById("game-screen")!.hidden).toBe(true);
+
+    // Switching mode before entering must not start a timed auction either.
+    document.getElementById("mode-auctioneer")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(frame.callback).toBeNull();
+    expect(document.getElementById("game-screen")!.hidden).toBe(true);
+
+    document.getElementById("enter-auction")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(frame.callback).not.toBeNull();
+    expect(document.getElementById("ready-screen")!.hidden).toBe(true);
+    expect(document.getElementById("game-screen")!.hidden).toBe(false);
+  });
+
+  it("returns to the ready screen on a mode switch and stops the loop rather than starting a new timed auction immediately", async () => {
+    const frame: { callback: FrameRequestCallback | null } = { callback: null };
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      frame.callback = cb;
+      return 1;
+    });
+
+    await import("../src/scripts/main.ts");
+    document.getElementById("enter-auction")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.getElementById("game-screen")!.hidden).toBe(false);
+
+    const inFlightFrame = frame.callback;
+    frame.callback = null;
+
+    document.getElementById("mode-auctioneer")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(document.getElementById("game-screen")!.hidden).toBe(true);
+    expect(document.getElementById("ready-screen")!.hidden).toBe(false);
+
+    // The frame already scheduled before the switch must not reschedule
+    // itself once it fires — the loop stops, it doesn't keep ticking a
+    // hidden game.
+    inFlightFrame?.(performance.now());
+    expect(frame.callback).toBeNull();
   });
 });
