@@ -19,6 +19,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -194,6 +195,7 @@ body {
   letter-spacing: 0.04em;
   text-align: center;
   font-size: clamp(0.85rem, 3.4vw, 1.1rem);
+  overflow-wrap: break-word;
 }
 
 .price-rail {
@@ -337,11 +339,13 @@ body {
 .ranking-item {
   display: flex;
   justify-content: space-between;
+  gap: 0.5rem;
   padding: 0.5rem 0.85rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+  font-size: clamp(0.8rem, 3.6vw, 1rem);
 }
 
 .ranking-item-player {
