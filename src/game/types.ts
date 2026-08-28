@@ -66,6 +66,22 @@ export interface LotOutcome {
   saleAtMs: number | null;
 }
 
+// Generated once per game and held fixed for its entire 12-lot duration —
+// this is what makes an NPC recognisably consistent within one game while
+// still varying, seed to seed, between different games. See npc.ts for how
+// each personality actually uses these fields; a field a personality
+// ignores is simply inert for it (e.g. discountRequirement only matters to
+// the value buyer).
+export interface NpcSessionProfile {
+  riskTolerance: number; // 0..1 — willingness to pay closer to the ceiling
+  patience: number; // 0..1 — willingness to wait longer before acting
+  aggression: number; // 0..1 — general eagerness to bid at all
+  marketSensitivity: number; // 0..1 — how strongly recent outcomes sway interest
+  preferredArtistId: ArtistId; // a mild, session-fixed lean toward one artist
+  discountRequirement: number; // 0.12..0.28 — the value buyer's fixed bar
+  mood: number; // -1..1 — a small overall session-wide shift
+}
+
 export type GamePhase = "auction" | "sold-pause" | "selecting" | "finished";
 
 export interface RankedResult {

@@ -10,7 +10,7 @@ import {
   generateLotBlueprints,
 } from "./lots";
 import { createMarket, portfolioValue, resolveSale, resolveUnsold, type Market } from "./market";
-import { computeNpcTrigger, NPC_NAMES, pickAuctioneerCard } from "./npc";
+import { computeNpcTrigger, generateNpcProfiles, NPC_NAMES, pickAuctioneerCard } from "./npc";
 import { applyPayment, paymentDestination } from "./payments";
 import { priceAtTime } from "./pricing";
 import { createRng, nextRange, type RngState } from "./rng";
@@ -25,6 +25,7 @@ import {
   type LotBlueprint,
   type LotOutcome,
   type NpcId,
+  type NpcSessionProfile,
   type RankedResult,
 } from "./types";
 
@@ -38,6 +39,9 @@ export interface GameState {
   collectors: Record<CollectorId, Collector>;
   blueprints: LotBlueprint[];
   hands: Partial<Record<CollectorId, LotBlueprint[]>>;
+  // Fixed once at createGame() and unchanged for the rest of the game — see
+  // generateNpcProfiles in npc.ts for what this holds and why.
+  npcProfiles: Record<NpcId, NpcSessionProfile>;
   turnOrder: (CollectorId | "house")[];
   currentTurnIndex: number;
   currentAuctioneer: CollectorId | "house";
@@ -91,7 +95,16 @@ function beginLot(
   const npcTriggers: Partial<Record<NpcId, number | null>> = {};
   for (const npcId of NPC_IDS) {
     const holdingsCount = state.collectors[npcId].holdings[blueprint.artistId] ?? 0;
-    const result = computeNpcTrigger(npcId, lot, state.market, state.collectors[npcId].cash, holdingsCount, s);
+    const result = computeNpcTrigger(
+      npcId,
+      lot,
+      state.market,
+      state.collectors[npcId].cash,
+      holdingsCount,
+      state.npcProfiles[npcId],
+      state.outcomes,
+      s,
+    );
     npcTriggers[npcId] = result.value;
     s = result.state;
   }
@@ -141,14 +154,15 @@ function startTurn(state: GameState, turnIndex: number, elapsedMs: number): Game
   }
 
   const hand = state.hands[auctioneer] ?? [];
-  const card = pickAuctioneerCard(hand, state.market);
+  const card = pickAuctioneerCard(auctioneer, hand, state.market, state.collectors[auctioneer].holdings);
   const nextHands = { ...state.hands, [auctioneer]: hand.filter((b: LotBlueprint) => b.index !== card.index) };
   return beginLot({ ...advanced, hands: nextHands }, card, auctioneer, elapsedMs);
 }
 
 export function createGame(seedValue: number, mode: GameMode = "house", elapsedMs = 0): GameState {
   const s0 = createRng(seedValue);
-  const { value: blueprints, state: s1 } = generateLotBlueprints(s0);
+  const { value: npcProfiles, state: sProfiles } = generateNpcProfiles(s0);
+  const { value: blueprints, state: s1 } = generateLotBlueprints(sProfiles);
 
   const turnOrder: (CollectorId | "house")[] =
     mode === "auctioneer" ? buildAuctioneerOrder() : Array(LOT_COUNT).fill("house");
@@ -161,6 +175,7 @@ export function createGame(seedValue: number, mode: GameMode = "house", elapsedM
     collectors: createCollectors(),
     blueprints,
     hands,
+    npcProfiles,
     turnOrder,
     currentTurnIndex: -1,
     currentAuctioneer: "house",
