@@ -278,9 +278,23 @@ function renderClaimTracks(relativeMs: number) {
   }
 }
 
-function renderHandCards() {
-  els.handCards.replaceChildren();
+// Rendered only when the player's hand actually changes (by array identity —
+// selectLotCard always produces a fresh array when a card is removed), never
+// unconditionally every animation frame. Recreating these buttons every frame
+// destroyed the click target mid-click, which is why AUCTIONEER selection
+// used to be nearly unclickable: render() runs on every rAF tick, and a
+// click event needs its target node to still exist when the click completes.
+let renderedHand: GameState["hands"]["player"] | null = null;
+
+function renderHandCardsIfNeeded() {
   const hand = state.hands.player ?? [];
+  if (hand === renderedHand) return;
+  renderedHand = hand;
+  renderHandCards(hand);
+}
+
+function renderHandCards(hand: NonNullable<GameState["hands"]["player"]>) {
+  els.handCards.replaceChildren();
   hand.forEach((card, i) => {
     const artist = ARTISTS.find((a) => a.id === card.artistId)!;
     const btn = document.createElement("button");
@@ -375,7 +389,7 @@ function render() {
     els.stage.hidden = true;
     els.paymentFlow.hidden = true;
     els.lotCaption.hidden = true;
-    renderHandCards();
+    renderHandCardsIfNeeded();
     return;
   }
 

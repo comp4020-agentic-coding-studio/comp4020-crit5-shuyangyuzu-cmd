@@ -86,6 +86,65 @@ describe("a lot belongs to its first successful claimant only", () => {
   });
 });
 
+describe("AUCTIONEER hand selection transitions selecting to auction", () => {
+  it("starts the player's turn in the selecting phase with a three-card hand", () => {
+    const game = createGame(11, "auctioneer");
+    expect(game.phase).toBe("selecting");
+    expect(game.currentAuctioneer).toBe("player");
+    expect(game.hands.player).toHaveLength(3);
+    expect(game.currentLot).toBeNull();
+  });
+
+  it("many ticks while selecting leave the phase and hand untouched", () => {
+    // Models real time passing (many animation frames) before the player
+    // clicks a hand card — the state must be stable, not decaying on its own.
+    const game = createGame(11, "auctioneer");
+    let state = game;
+    for (let clock = 0; clock < 5000; clock += 16) {
+      state = tick(state, clock);
+    }
+    expect(state.phase).toBe("selecting");
+    expect(state.hands.player).toBe(game.hands.player);
+  });
+
+  it("selecting a hand card opens its auction and removes exactly that card from the hand", () => {
+    const game = createGame(11, "auctioneer");
+    const hand = game.hands.player!;
+    const chosen = hand[1];
+
+    const afterSelect = selectLotCard(game, 1, 1234);
+
+    expect(afterSelect.phase).toBe("auction");
+    expect(afterSelect.currentAuctioneer).toBe("player");
+    expect(afterSelect.currentLot).not.toBeNull();
+    expect(afterSelect.currentLot!.artistId).toBe(chosen.artistId);
+    expect(afterSelect.currentLot!.index).toBe(chosen.index);
+    expect(afterSelect.hands.player).toHaveLength(2);
+    expect(afterSelect.hands.player).not.toBe(hand);
+    expect(afterSelect.hands.player!.some((card) => card.index === chosen.index)).toBe(false);
+  });
+
+  it("ignores a selection once the phase has already moved past selecting", () => {
+    const game = createGame(11, "auctioneer");
+    const afterSelect = selectLotCard(game, 0, 100);
+    const ignored = selectLotCard(afterSelect, 0, 200);
+    expect(ignored).toBe(afterSelect);
+  });
+
+  it("completes a full 12-lot AUCTIONEER game, rotating the auctioneer role evenly", () => {
+    const finished = playToFinish(202, "auctioneer");
+    expect(finished.phase).toBe("finished");
+    expect(finished.outcomes).toHaveLength(LOT_COUNT);
+    const auctioneerCounts = new Map<string, number>();
+    for (const outcome of finished.outcomes) {
+      auctioneerCounts.set(outcome.auctioneer, (auctioneerCounts.get(outcome.auctioneer) ?? 0) + 1);
+    }
+    for (const id of COLLECTOR_IDS) {
+      expect(auctioneerCounts.get(id)).toBe(3);
+    }
+  });
+});
+
 describe("market resolution", () => {
   it("PREMIUM SALE increases only the affected artist by $15", () => {
     const base = createMarket();
