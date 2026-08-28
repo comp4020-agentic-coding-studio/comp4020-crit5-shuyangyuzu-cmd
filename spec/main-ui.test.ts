@@ -21,53 +21,56 @@ function buildDom() {
       <canvas id="ready-artwork-canvas"></canvas>
       <button type="button" id="enter-auction"></button>
     </div>
-    <div id="game-screen" hidden></div>
     <button id="mode-house" aria-pressed="true"></button>
     <button id="mode-auctioneer" aria-pressed="false"></button>
-    <div id="auctioneer-banner">
-      <div id="auctioneer-label"></div>
-    </div>
-    <div id="net-worth-formula"></div>
-    <div id="player-cash"></div>
-    <div id="market-board"></div>
-    <div id="lot-counter"></div>
-    <div id="panel-rivals">
-      <div id="rivals-board"></div>
-    </div>
-    <div id="selecting-panel" hidden>
-      <div id="hand-cards"></div>
-    </div>
-    <div id="lot-caption" hidden>
-      <span id="artist-swatch"></span>
-      <span id="artist-name"></span>
-      <span id="artwork-title"></span>
-    </div>
-    <div id="bid-market-compare" hidden>
-      <span id="bid-compare-value"></span>
-      <span id="market-compare-value"></span>
-      <span id="bid-market-indicator">
-        <span id="bid-market-arrow"></span>
-        <span id="bid-market-label"></span>
-      </span>
-    </div>
-    <div class="stage" id="stage" hidden>
-      <button type="button" id="artwork-button">
-        <canvas id="artwork-canvas"></canvas>
-        <span id="outcome-tag" hidden></span>
-        <span id="sold-banner" hidden></span>
-        <span id="bid-overlay">
-          <span id="bid-overlay-label"></span>
-        </span>
-      </button>
-      <span id="price-tag"></span>
-    </div>
-    <div id="payment-flow" hidden></div>
-    <div id="collection-board"></div>
-    <div id="npc-dock" hidden></div>
-    <div id="end-screen" hidden>
-      <p id="end-result"></p>
-      <ol id="ranking-list"></ol>
-      <button type="button" id="play-again"></button>
+    <div id="game-screen" hidden>
+      <div id="game-layout" class="game-layout">
+        <div id="auctioneer-banner">
+          <div id="auctioneer-label"></div>
+        </div>
+        <div id="net-worth-formula"></div>
+        <div id="player-cash"></div>
+        <div id="market-board"></div>
+        <div id="lot-counter"></div>
+        <div id="panel-rivals">
+          <div id="rivals-board"></div>
+        </div>
+        <div id="selecting-panel" hidden>
+          <div id="hand-cards"></div>
+        </div>
+        <div id="lot-caption" hidden>
+          <span id="artist-swatch"></span>
+          <span id="artist-name"></span>
+          <span id="artwork-title"></span>
+        </div>
+        <div id="bid-market-compare" hidden>
+          <span id="bid-compare-value"></span>
+          <span id="market-compare-value"></span>
+          <span id="bid-market-indicator">
+            <span id="bid-market-arrow"></span>
+            <span id="bid-market-label"></span>
+          </span>
+        </div>
+        <div class="stage" id="stage" hidden>
+          <button type="button" id="artwork-button">
+            <canvas id="artwork-canvas"></canvas>
+            <span id="outcome-tag" hidden></span>
+            <span id="sold-banner" hidden></span>
+            <span id="bid-overlay">
+              <span id="bid-overlay-label"></span>
+            </span>
+          </button>
+          <span id="price-tag"></span>
+        </div>
+        <div id="payment-flow" hidden></div>
+        <div id="collection-board"></div>
+        <div id="end-screen" hidden>
+          <p id="end-result"></p>
+          <ol id="ranking-list"></ol>
+          <button type="button" id="play-again"></button>
+        </div>
+      </div>
+      <div id="npc-dock" hidden></div>
     </div>
   `;
 }

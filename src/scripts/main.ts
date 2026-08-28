@@ -76,6 +76,7 @@ const els = {
   playAgain: document.getElementById("play-again")! as HTMLButtonElement,
   readyArtworkCanvas: document.getElementById("ready-artwork-canvas")! as HTMLCanvasElement,
   npcDock: document.getElementById("npc-dock")! as HTMLElement,
+  gameLayout: document.getElementById("game-layout")! as HTMLElement,
 };
 
 interface CollectorPanelEls {
@@ -355,6 +356,17 @@ function setNpcDockVisible(visible: boolean) {
   document.body.classList.toggle("has-npc-dock", visible);
 }
 
+// Correction: hiding the desktop COLLECTORS panel with just the `hidden`
+// attribute left its named grid row (and the row gap around it) reserved as
+// blank space, since removing a hidden item from an explicit
+// grid-template-areas row doesn't collapse that row on its own. This class
+// drives a matching CSS rule (see .game-layout.phase-finished in global.css)
+// that drops the "rivals" row from the grid template entirely once the game
+// is finished, so no gap is left behind.
+function setFinishedLayout(finished: boolean) {
+  els.gameLayout.classList.toggle("phase-finished", finished);
+}
+
 function renderMarketBoard() {
   els.marketBoard.replaceChildren();
   for (const artist of ARTISTS) {
@@ -388,10 +400,15 @@ function renderMarketBoard() {
   }
 }
 
-// Playtest finding #4: the player's ledger must show each acquired work's own
-// identity (a thumbnail, its artist and its title), not a collapsed
-// per-artist headcount — acquiredLots is the exact-identity record, kept in
-// sync with holdings by recordAcquisition() in engine.ts.
+// Ledger layout correction: showing one card per acquired artwork made the
+// ledger grow taller across the game and destabilised the desktop layout, so
+// this now renders a fixed four-tile artist-count summary instead — the same
+// compact swatch+count style already used for NPC holdings, always in the
+// same artist order (ARTISTS is already ordered van Gogh, Monet, Kandinsky,
+// Mondrian), with zero counts left visible so the tile count — and the
+// ledger's height — never changes. acquiredLots itself is untouched by this:
+// it still carries the exact artist/title identity read by the current lot
+// caption, the sold banner and the AUCTIONEER hand cards.
 function renderCollection() {
   els.collectionBoard.replaceChildren();
   const label = document.createElement("span");
@@ -400,34 +417,23 @@ function renderCollection() {
   els.collectionBoard.appendChild(label);
 
   const player = state.collectors.player;
-  for (const lot of player.acquiredLots) {
-    const artist = ARTISTS.find((a) => a.id === lot.artistId)!;
-    const artwork = allArtworks().find((work) => work.id === lot.assetId)!;
+  for (const artist of ARTISTS) {
+    const count = player.holdings[artist.id] ?? 0;
     const tile = document.createElement("span");
     tile.className = "collection-tile";
     tile.style.setProperty("--artist-color", artist.color);
-
-    const thumb = document.createElement("canvas");
-    thumb.className = "collection-tile-thumb";
-    thumb.setAttribute("aria-hidden", "true");
-    paintPixelGrid(thumb, artwork.grid);
-    tile.appendChild(thumb);
+    tile.setAttribute("role", "img");
+    tile.setAttribute("aria-label", `${artist.name}: ${count}`);
 
     const swatch = document.createElement("span");
     swatch.className = `swatch swatch-${artist.symbol}`;
+    swatch.setAttribute("aria-hidden", "true");
     tile.appendChild(swatch);
 
-    const info = document.createElement("span");
-    info.className = "collection-tile-info";
-    const artistName = document.createElement("span");
-    artistName.className = "collection-tile-artist";
-    artistName.textContent = artist.name;
-    info.appendChild(artistName);
-    const title = document.createElement("span");
-    title.className = "collection-tile-title";
-    title.textContent = lot.title;
-    info.appendChild(title);
-    tile.appendChild(info);
+    const countEl = document.createElement("span");
+    countEl.setAttribute("aria-hidden", "true");
+    countEl.textContent = `×${count}`;
+    tile.appendChild(countEl);
 
     els.collectionBoard.appendChild(tile);
   }
@@ -621,10 +627,12 @@ function render() {
 
   if (state.phase === "finished") {
     setNpcDockVisible(false);
+    setFinishedLayout(true);
     renderEndScreen();
     return;
   }
 
+  setFinishedLayout(false);
   setNpcDockVisible(true);
   els.endScreen.hidden = true;
   els.auctioneerBanner.hidden = false;

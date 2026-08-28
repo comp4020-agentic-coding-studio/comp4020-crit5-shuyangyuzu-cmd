@@ -189,6 +189,20 @@ body {
   .panel-rivals {
     grid-area: rivals;
   }
+
+  /* Finished-screen correction: hiding .panel-rivals via the `hidden`
+     attribute alone left its named grid row (and the row gap around it)
+     reserved, since an explicit grid-template-areas row doesn't collapse
+     just because its one item is display:none. Dropping the "rivals" row
+     from the template entirely — driven by a phase-based class rather than
+     the hidden attribute — removes that reserved space outright. */
+  .game-layout.phase-finished {
+    grid-template-areas: "market stage ledger";
+  }
+
+  .game-layout.phase-finished .panel-rivals {
+    display: none;
+  }
 }
 
 .panel-market {
@@ -858,41 +872,19 @@ body {
   margin-right: 0.2rem;
 }
 
+/* Ledger layout correction: the ledger used to render one card per acquired
+   artwork, so the panel grew taller for every purchase and destabilised the
+   desktop layout. It now always renders exactly four tiles — one per artist,
+   in a fixed order, zero counts included — mirroring the compact swatch+count
+   style already used for NPC holdings (.collector-tile), so the ledger's
+   height never changes across a game. */
 .collection-tile {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.6rem 0.25rem 0.25rem;
-  border-radius: 10px;
-  border: 1px solid var(--artist-color);
+  gap: 0.3rem;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 0.85rem;
-}
-
-.collection-tile-thumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  flex-shrink: 0;
-  image-rendering: pixelated;
-}
-
-.collection-tile-info {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-}
-
-.collection-tile-artist {
-  font-size: 0.72rem;
-  letter-spacing: 0.02em;
-}
-
-.collection-tile-title {
-  font-size: 0.72rem;
-  font-weight: 600;
-  font-style: italic;
-  opacity: 0.85;
 }
 
 .end-screen {
