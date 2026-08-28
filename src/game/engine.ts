@@ -17,6 +17,7 @@ import { createRng, nextRange, type RngState } from "./rng";
 import {
   COLLECTOR_IDS,
   NPC_IDS,
+  type AcquiredLot,
   type Collector,
   type CollectorId,
   type GameMode,
@@ -61,9 +62,40 @@ const COLLECTOR_NAMES: Record<CollectorId, string> = {
 function createCollectors(): Record<CollectorId, Collector> {
   const collectors = {} as Record<CollectorId, Collector>;
   for (const id of COLLECTOR_IDS) {
-    collectors[id] = { id, name: COLLECTOR_NAMES[id], cash: STARTING_CASH, holdings: {} };
+    collectors[id] = { id, name: COLLECTOR_NAMES[id], cash: STARTING_CASH, holdings: {}, acquiredLots: [] };
   }
   return collectors;
+}
+
+// The single place a purchase is recorded onto a collector — updates the
+// artist-count `holdings` field and appends the exact-identity `acquiredLots`
+// record in the same call, so the two can never drift out of sync.
+function recordAcquisition(
+  collectors: Record<CollectorId, Collector>,
+  buyer: CollectorId,
+  lot: Lot,
+  price: number,
+): Record<CollectorId, Collector> {
+  const acquired: AcquiredLot = {
+    lotId: lot.index,
+    artistId: lot.artistId,
+    title: lot.artwork.title,
+    year: lot.artwork.year,
+    assetId: lot.artwork.id,
+    price,
+    buyer,
+  };
+  return {
+    ...collectors,
+    [buyer]: {
+      ...collectors[buyer],
+      holdings: {
+        ...collectors[buyer].holdings,
+        [lot.artistId]: (collectors[buyer].holdings[lot.artistId] ?? 0) + 1,
+      },
+      acquiredLots: [...collectors[buyer].acquiredLots, acquired],
+    },
+  };
 }
 
 // Builds the priced, timed Lot for a blueprint the instant its auction opens,
@@ -214,16 +246,7 @@ function settleSale(
   const { market: nextMarket, kind } = resolveSale(state.market, lot.artistId, price, lot.preSaleValue);
 
   let collectors = applyPayment(state.collectors, winner, auctioneer, price);
-  collectors = {
-    ...collectors,
-    [winner]: {
-      ...collectors[winner],
-      holdings: {
-        ...collectors[winner].holdings,
-        [lot.artistId]: (collectors[winner].holdings[lot.artistId] ?? 0) + 1,
-      },
-    },
-  };
+  collectors = recordAcquisition(collectors, winner, lot, price);
 
   const outcome: LotOutcome = {
     lotIndex: lot.index,

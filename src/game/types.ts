@@ -8,20 +8,44 @@ export const COLLECTOR_IDS: CollectorId[] = ["player", ...NPC_IDS];
 
 export type GameMode = "house" | "auctioneer";
 
+// One purchased lot's exact identity, preserved for as long as the buyer
+// holds it — this is what lets the UI show "Vincent van Gogh / The Starry
+// Night" instead of collapsing every purchase into an artist headcount.
+// `assetId` doubles as the "local asset path" the spec asks for: the pixel
+// art lives as TS source in pixelart.ts rather than a separate binary file,
+// so the artwork's own id (matched 1:1 with a PIECES entry) is that path.
+export interface AcquiredLot {
+  lotId: number;
+  artistId: ArtistId;
+  title: string;
+  year: number;
+  assetId: string;
+  price: number;
+  buyer: CollectorId;
+}
+
 export interface Collector {
   id: CollectorId;
   name: string;
   cash: number;
+  // Kept in sync with acquiredLots through exactly one code path
+  // (engine.ts's recordAcquisition) rather than two independently maintained
+  // sources of truth — this field is what npc.ts, market.ts and the market
+  // board read; acquiredLots is what the UI reads to show a specific title.
   holdings: Partial<Record<ArtistId, number>>;
+  acquiredLots: AcquiredLot[];
 }
 
 // A fixed, hand-placed low-resolution pixel grid — one hex colour per cell,
 // square (grid.length rows of grid.length cells) — rendered at native size
 // onto a canvas and scaled up with image-rendering: pixelated. See
 // pixelart.ts for how the twelve pieces are built and ART_PROVENANCE.md for
-// the real paintings they take loose inspiration from.
+// the real paintings and museum references each one interprets.
 export interface ArtworkSpec {
+  id: string;
   title: string;
+  year: number;
+  sourceUrl: string;
   grid: string[][];
 }
 

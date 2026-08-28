@@ -11,6 +11,7 @@ import {
 import { LOT_COUNT } from "../src/game/lots";
 import { createMarket, resolveSale, resolveUnsold } from "../src/game/market";
 import { applyPayment, paymentDestination } from "../src/game/payments";
+import { allArtworks } from "../src/game/pixelart";
 import { COLLECTOR_IDS, NPC_IDS, type Collector, type CollectorId, type GameMode } from "../src/game/types";
 import { buildPublicView } from "../src/game/view";
 
@@ -22,7 +23,7 @@ import { buildPublicView } from "../src/game/view";
 function baseCollectors(): Record<CollectorId, Collector> {
   const collectors = {} as Record<CollectorId, Collector>;
   for (const id of COLLECTOR_IDS) {
-    collectors[id] = { id, name: id, cash: 500, holdings: {} };
+    collectors[id] = { id, name: id, cash: 500, holdings: {}, acquiredLots: [] };
   }
   return collectors;
 }
@@ -247,6 +248,9 @@ describe("rival financial privacy", () => {
       expect("netWorth" in entry).toBe(false);
       expect("collectionValue" in entry).toBe(false);
       expect(entry.holdings).toBeDefined();
+      // Collection composition (exact acquired-lot identity) is public like
+      // holdings — only finance figures are gated pre-finish.
+      expect(entry.acquiredLots).toBeDefined();
     }
 
     const player = view.collectors.find((c) => c.id === "player")!;
@@ -274,10 +278,10 @@ describe("final net worth", () => {
       ...base,
       market,
       collectors: {
-        player: { id: "player", name: "You", cash: 200, holdings: { vangogh: 2 } },
-        trend: { id: "trend", name: "Trend", cash: 500, holdings: {} },
-        value: { id: "value", name: "Value", cash: 50, holdings: { kandinsky: 1, monet: 1 } },
-        momentum: { id: "momentum", name: "Momentum", cash: 300, holdings: { vangogh: 1 } },
+        player: { id: "player", name: "You", cash: 200, holdings: { vangogh: 2 }, acquiredLots: [] },
+        trend: { id: "trend", name: "Trend", cash: 500, holdings: {}, acquiredLots: [] },
+        value: { id: "value", name: "Value", cash: 50, holdings: { kandinsky: 1, monet: 1 }, acquiredLots: [] },
+        momentum: { id: "momentum", name: "Momentum", cash: 300, holdings: { vangogh: 1 }, acquiredLots: [] },
       },
     };
 
@@ -297,10 +301,10 @@ describe("a tie for first is not a strict player win", () => {
       ...base,
       market: { vangogh: 100, monet: 100, kandinsky: 100, mondrian: 100 },
       collectors: {
-        player: { id: "player", name: "You", cash: 1000, holdings: {} },
-        trend: { id: "trend", name: "Trend", cash: 1000, holdings: {} },
-        value: { id: "value", name: "Value", cash: 400, holdings: {} },
-        momentum: { id: "momentum", name: "Momentum", cash: 200, holdings: {} },
+        player: { id: "player", name: "You", cash: 1000, holdings: {}, acquiredLots: [] },
+        trend: { id: "trend", name: "Trend", cash: 1000, holdings: {}, acquiredLots: [] },
+        value: { id: "value", name: "Value", cash: 400, holdings: {}, acquiredLots: [] },
+        momentum: { id: "momentum", name: "Momentum", cash: 200, holdings: {}, acquiredLots: [] },
       },
     };
 
@@ -319,13 +323,142 @@ describe("a tie for first is not a strict player win", () => {
       ...base,
       market: { vangogh: 100, monet: 100, kandinsky: 100, mondrian: 100 },
       collectors: {
-        player: { id: "player", name: "You", cash: 1200, holdings: {} },
-        trend: { id: "trend", name: "Trend", cash: 1000, holdings: {} },
-        value: { id: "value", name: "Value", cash: 400, holdings: {} },
-        momentum: { id: "momentum", name: "Momentum", cash: 200, holdings: {} },
+        player: { id: "player", name: "You", cash: 1200, holdings: {}, acquiredLots: [] },
+        trend: { id: "trend", name: "Trend", cash: 1000, holdings: {}, acquiredLots: [] },
+        value: { id: "value", name: "Value", cash: 400, holdings: {}, acquiredLots: [] },
+        momentum: { id: "momentum", name: "Momentum", cash: 200, holdings: {}, acquiredLots: [] },
       },
     };
 
     expect(isPlayerWinner(computeResults(state))).toBe(true);
+  });
+});
+
+// This iteration's playtest finding #3/#4: the twelve lots must be pixel
+// interpretations of twelve specific, uniquely titled, real paintings (three
+// per artist), and a purchase must preserve that exact identity rather than
+// collapsing into an artist headcount.
+describe("the twelve real artworks (playtest finding #3)", () => {
+  it("are all uniquely titled", () => {
+    const works = allArtworks();
+    expect(works).toHaveLength(12);
+    expect(new Set(works.map((w) => w.title)).size).toBe(12);
+  });
+
+  it("assigns exactly three works to each of the four artists", () => {
+    const works = allArtworks();
+    const counts = new Map<string, number>();
+    for (const w of works) counts.set(w.artistId, (counts.get(w.artistId) ?? 0) + 1);
+    for (const artistId of ["vangogh", "monet", "kandinsky", "mondrian"] as const) {
+      expect(counts.get(artistId)).toBe(3);
+    }
+  });
+
+  it("gives every work a distinct pixel grid within its own artist's set", () => {
+    const works = allArtworks();
+    const byArtist = new Map<string, typeof works>();
+    for (const w of works) {
+      const list = byArtist.get(w.artistId) ?? [];
+      list.push(w);
+      byArtist.set(w.artistId, list);
+    }
+    for (const [, pieces] of byArtist) {
+      const serialized = pieces.map((p) => JSON.stringify(p.grid));
+      expect(new Set(serialized).size).toBe(pieces.length);
+    }
+  });
+});
+
+describe("purchasing a lot preserves its exact artwork identity (playtest finding #4)", () => {
+  it("records the lot's title, year and asset id onto the buyer in HOUSE mode", () => {
+    const base = createGame(42, "house");
+    const lot = base.currentLot!;
+    const game: GameState = { ...base, npcTriggers: { trend: 4000, value: null, momentum: null } };
+
+    const sold = tick(game, 4000);
+    const acquired = sold.collectors.trend.acquiredLots;
+
+    expect(acquired).toHaveLength(1);
+    expect(acquired[0]).toMatchObject({
+      lotId: lot.index,
+      artistId: lot.artistId,
+      title: lot.artwork.title,
+      year: lot.artwork.year,
+      assetId: lot.artwork.id,
+      buyer: "trend",
+    });
+    expect(acquired[0].price).toBe(sold.outcomes[0].price);
+  });
+
+  it("preserves the same metadata shape whichever collector wins a lot in AUCTIONEER mode", () => {
+    const finished = playToFinish(202, "auctioneer");
+    for (const id of COLLECTOR_IDS) {
+      for (const lotRecord of finished.collectors[id].acquiredLots) {
+        expect(lotRecord.buyer).toBe(id);
+        expect(typeof lotRecord.title).toBe("string");
+        expect(lotRecord.title.length).toBeGreaterThan(0);
+        expect(typeof lotRecord.assetId).toBe("string");
+      }
+    }
+    // Every sold lot (never an UNSOLD one) is accounted for by exactly one
+    // collector's acquiredLots — the two sources of truth (holdings counts vs
+    // acquiredLots identities) cannot drift apart.
+    const soldOutcomes = finished.outcomes.filter((o) => o.winner !== null);
+    const allAcquired = COLLECTOR_IDS.flatMap((id) => finished.collectors[id].acquiredLots);
+    expect(allAcquired).toHaveLength(soldOutcomes.length);
+  });
+
+  it("keeps holdings counts and acquiredLots in sync for every collector", () => {
+    const finished = playToFinish(303, "house");
+    for (const id of COLLECTOR_IDS) {
+      const collector = finished.collectors[id];
+      const countsFromLots = new Map<string, number>();
+      for (const lotRecord of collector.acquiredLots) {
+        countsFromLots.set(lotRecord.artistId, (countsFromLots.get(lotRecord.artistId) ?? 0) + 1);
+      }
+      for (const artistId of ["vangogh", "monet", "kandinsky", "mondrian"] as const) {
+        expect(collector.holdings[artistId] ?? 0).toBe(countsFromLots.get(artistId) ?? 0);
+      }
+    }
+  });
+});
+
+describe("portfolio scoring still uses final market value, not purchase price", () => {
+  it("values a cheap early buy at the artist's current market value once it has moved", () => {
+    const base = createGame(1);
+    const market = { vangogh: 200, monet: 65, kandinsky: 50, mondrian: 35 };
+    const state: GameState = {
+      ...base,
+      market,
+      collectors: {
+        player: {
+          id: "player",
+          name: "You",
+          cash: 490,
+          holdings: { vangogh: 1 },
+          acquiredLots: [
+            {
+              lotId: 0,
+              artistId: "vangogh",
+              title: "The Starry Night",
+              year: 1889,
+              assetId: "vangogh-starry-night",
+              price: 10,
+              buyer: "player",
+            },
+          ],
+        },
+        trend: { id: "trend", name: "Trend", cash: 500, holdings: {}, acquiredLots: [] },
+        value: { id: "value", name: "Value", cash: 500, holdings: {}, acquiredLots: [] },
+        momentum: { id: "momentum", name: "Momentum", cash: 500, holdings: {}, acquiredLots: [] },
+      },
+    };
+
+    const results = computeResults(state);
+    const player = results.find((r) => r.id === "player")!;
+    // The purchase price was $10, but the artist's market value has since
+    // risen to $200 — final wealth must reflect the market value, not the
+    // sunk purchase price.
+    expect(player.wealth).toBe(490 + 200);
   });
 });
