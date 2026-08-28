@@ -15,3 +15,4 @@ export * from "./npc";
 export * from "./pricing";
 export * from "./rng";
 export * from "./types";
+export * from "./view";

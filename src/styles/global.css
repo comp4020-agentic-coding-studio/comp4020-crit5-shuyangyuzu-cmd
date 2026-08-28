@@ -62,6 +62,19 @@ body {
   width: 100%;
 }
 
+.networth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.networth-formula {
+  font-size: clamp(1.1rem, 4.5vw, 1.6rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
 .hud {
   display: flex;
   flex-wrap: wrap;
@@ -117,6 +130,11 @@ body {
   box-shadow: 0 0 0.6rem color-mix(in srgb, var(--artist-color) 60%, transparent);
 }
 
+.market-chip-down {
+  border-color: var(--artist-color);
+  box-shadow: inset 0 0 0.6rem color-mix(in srgb, var(--artist-color) 45%, transparent);
+}
+
 .swatch {
   display: inline-block;
   width: 0.8rem;
@@ -133,6 +151,11 @@ body {
   border-radius: 2px;
 }
 
+.swatch-diamond {
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
 .swatch-triangle {
   width: 0;
   height: 0;
@@ -142,6 +165,58 @@ body {
   border-bottom: 0.8rem solid var(--artist-color);
 }
 
+.rivals-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 32rem;
+}
+
+.rival-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+
+.rival-name {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.rival-holdings {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.rival-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.lot-caption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lot-caption-name {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-size: 1.05rem;
+}
+
 .stage {
   position: relative;
   width: min(78vw, 62vh, 460px);
@@ -149,11 +224,48 @@ body {
   margin-top: 1.5rem;
 }
 
+.claim-rail {
+  position: absolute;
+  z-index: 1;
+  background: var(--line);
+  transition: opacity 0.3s ease;
+}
+
+.claim-rail-inactive {
+  opacity: 0.3;
+}
+
+.claim-rail-trend {
+  top: -16%;
+  left: 50%;
+  width: 2px;
+  height: 42%;
+  transform: translateX(-50%);
+}
+
+.claim-rail-value {
+  bottom: -10%;
+  left: 2%;
+  width: 40%;
+  height: 2px;
+  transform-origin: left bottom;
+  transform: rotate(-28deg);
+}
+
+.claim-rail-momentum {
+  bottom: -10%;
+  right: 2%;
+  width: 40%;
+  height: 2px;
+  transform-origin: right bottom;
+  transform: rotate(28deg);
+}
+
 .artwork {
   position: absolute;
   inset: 14%;
   border-radius: 12px;
-  border: 3px solid var(--line);
+  border: 3px solid var(--artist-color, var(--line));
   padding: 0;
   overflow: hidden;
   cursor: pointer;
@@ -185,6 +297,29 @@ body {
   height: 100%;
 }
 
+.outcome-tag {
+  position: absolute;
+  inset: 0.6rem 0.6rem auto auto;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(8, 7, 10, 0.82);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+
+.outcome-tag-premium {
+  color: #5eead4;
+}
+
+.outcome-tag-discount {
+  color: #fbbf24;
+}
+
+.outcome-tag-unsold {
+  color: #fb7185;
+}
+
 .sold-banner {
   position: absolute;
   inset: auto 0 0 0;
@@ -211,7 +346,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.bidder {
+.claim-track {
   --progress: 0;
   position: absolute;
   display: flex;
@@ -220,9 +355,10 @@ body {
   gap: 0.2rem;
   z-index: 2;
   opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
-.bidder-mark {
+.claim-track-mark {
   width: clamp(1.1rem, 4vw, 1.6rem);
   height: clamp(1.1rem, 4vw, 1.6rem);
   border-radius: 50%;
@@ -230,50 +366,50 @@ body {
   background: var(--panel);
 }
 
-.bidder-tag {
+.claim-track-tag {
   font-size: 0.62rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #cfc9dc;
 }
 
-.bidder-trend {
+.claim-track-trend {
   top: calc(-16% + var(--progress) * 58%);
   left: 50%;
   transform: translate(-50%, -50%);
 }
 
-.bidder-trend .bidder-mark {
+.claim-track-trend .claim-track-mark {
   border-color: #8b5cf6;
 }
 
-.bidder-value {
+.claim-track-value {
   bottom: calc(-10% + var(--progress) * 52%);
   left: calc(2% + var(--progress) * 38%);
   transform: translate(-50%, 50%);
 }
 
-.bidder-value .bidder-mark {
+.claim-track-value .claim-track-mark {
   border-color: #14b8a6;
 }
 
-.bidder-momentum {
+.claim-track-momentum {
   bottom: calc(-10% + var(--progress) * 52%);
   right: calc(2% + var(--progress) * 38%);
   transform: translate(50%, 50%);
 }
 
-.bidder-momentum .bidder-mark {
+.claim-track-momentum .claim-track-mark {
   border-color: #f97316;
 }
 
-.bidder-arrived .bidder-mark {
+.claim-track-arrived .claim-track-mark {
   background: var(--ink);
   transform: scale(1.25);
   transition: transform 0.2s ease, background 0.2s ease;
 }
 
-.bidder-sitting-out {
+.claim-track-sitting-out {
   opacity: 0.28;
 }
 
@@ -333,7 +469,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  width: min(100%, 22rem);
+  width: min(100%, 24rem);
 }
 
 .ranking-item {
@@ -345,7 +481,11 @@ body {
   border-radius: 8px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  font-size: clamp(0.8rem, 3.6vw, 1rem);
+  font-size: clamp(0.78rem, 3.4vw, 0.95rem);
+}
+
+.ranking-detail {
+  color: #cfc9dc;
 }
 
 .ranking-item-player {
@@ -381,6 +521,19 @@ body {
   .hud {
     justify-content: center;
     text-align: center;
+  }
+
+  .rivals-board {
+    max-width: 100%;
+  }
+
+  .rival-row {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .rival-holdings {
+    justify-content: center;
   }
 }
 

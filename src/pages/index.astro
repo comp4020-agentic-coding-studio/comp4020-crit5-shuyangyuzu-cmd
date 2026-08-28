@@ -14,6 +14,11 @@ import Layout from "../layouts/Layout.astro";
   <main id="app">
     <h1 class="visually-hidden">GOING, GOING&hellip;</h1>
 
+    <div class="networth">
+      <span class="hud-label">NET WORTH = CASH + COLLECTION</span>
+      <span id="net-worth-formula" class="networth-formula">$0 = $0 + $0</span>
+    </div>
+
     <div class="hud">
       <div class="hud-cell hud-cash">
         <span class="hud-label">CASH</span>
@@ -26,22 +31,34 @@ import Layout from "../layouts/Layout.astro";
       </div>
     </div>
 
-    <div class="stage">
-      <div class="bidder bidder-trend" data-npc="trend">
-        <span class="bidder-mark"></span>
-        <span class="bidder-tag">Trend</span>
+    <div id="rivals-board" class="rivals-board" aria-label="Rival collections"></div>
+
+    <div id="lot-caption" class="lot-caption">
+      <span id="artist-swatch" class="swatch"></span>
+      <span id="artist-name" class="lot-caption-name"></span>
+    </div>
+
+    <div class="stage" id="stage">
+      <span class="claim-rail claim-rail-trend" aria-hidden="true"></span>
+      <span class="claim-rail claim-rail-value" aria-hidden="true"></span>
+      <span class="claim-rail claim-rail-momentum" aria-hidden="true"></span>
+
+      <div class="claim-track claim-track-trend" data-npc="trend">
+        <span class="claim-track-mark"></span>
+        <span class="claim-track-tag">Trend</span>
       </div>
-      <div class="bidder bidder-value" data-npc="value">
-        <span class="bidder-mark"></span>
-        <span class="bidder-tag">Value</span>
+      <div class="claim-track claim-track-value" data-npc="value">
+        <span class="claim-track-mark"></span>
+        <span class="claim-track-tag">Value</span>
       </div>
-      <div class="bidder bidder-momentum" data-npc="momentum">
-        <span class="bidder-mark"></span>
-        <span class="bidder-tag">Momentum</span>
+      <div class="claim-track claim-track-momentum" data-npc="momentum">
+        <span class="claim-track-mark"></span>
+        <span class="claim-track-tag">Momentum</span>
       </div>
 
       <button type="button" id="artwork-button" class="artwork" aria-label="Claim this artwork">
         <svg id="artwork-svg" viewBox="0 0 100 100" aria-hidden="true"></svg>
+        <span id="outcome-tag" class="outcome-tag" hidden></span>
         <span id="sold-banner" class="sold-banner" hidden></span>
       </button>
 

@@ -9,34 +9,54 @@ import {
   type GameState,
 } from "../game/engine";
 import { LOT_COUNT } from "../game/lots";
-import { NPC_NAMES } from "../game/npc";
+import { portfolioValue } from "../game/market";
 import { priceAtTime } from "../game/pricing";
-import { NPC_IDS, type ArtworkShape, type NpcId } from "../game/types";
+import { NPC_IDS, type ArtworkShape, type CollectorId, type LotOutcome, type NpcId } from "../game/types";
+import { buildPublicView } from "../game/view";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 if (reduceMotion) document.body.classList.add("reduce-motion");
 
+const COLLECTOR_LABELS: Record<CollectorId, string> = {
+  player: "YOU",
+  trend: "TREND",
+  value: "VALUE",
+  momentum: "MOMENTUM",
+};
+
 const els = {
+  netWorthFormula: document.getElementById("net-worth-formula")!,
   cash: document.getElementById("player-cash")!,
   marketBoard: document.getElementById("market-board")!,
   lotCounter: document.getElementById("lot-counter")!,
+  rivalsBoard: document.getElementById("rivals-board")!,
+  lotCaption: document.getElementById("lot-caption")!,
+  artistSwatch: document.getElementById("artist-swatch")!,
+  artistName: document.getElementById("artist-name")!,
   artworkButton: document.getElementById("artwork-button")! as HTMLButtonElement,
   artworkSvg: document.getElementById("artwork-svg")! as unknown as SVGSVGElement,
+  outcomeTag: document.getElementById("outcome-tag")!,
   soldBanner: document.getElementById("sold-banner")!,
   priceTag: document.getElementById("price-tag")!,
   collectionBoard: document.getElementById("collection-board")!,
-  stage: document.querySelector(".stage")! as HTMLElement,
+  stage: document.getElementById("stage")! as HTMLElement,
   endScreen: document.getElementById("end-screen")!,
   endResult: document.getElementById("end-result")!,
   rankingList: document.getElementById("ranking-list")!,
   playAgain: document.getElementById("play-again")! as HTMLButtonElement,
 };
 
-const bidderEls: Record<NpcId, HTMLElement> = {
+const trackEls: Record<NpcId, HTMLElement> = {
   trend: document.querySelector('[data-npc="trend"]')!,
   value: document.querySelector('[data-npc="value"]')!,
   momentum: document.querySelector('[data-npc="momentum"]')!,
+};
+
+const railEls: Record<NpcId, HTMLElement> = {
+  trend: document.querySelector(".claim-rail-trend")!,
+  value: document.querySelector(".claim-rail-value")!,
+  momentum: document.querySelector(".claim-rail-momentum")!,
 };
 
 function seedFromClock(): number {
@@ -48,7 +68,6 @@ const elapsed = () => performance.now() - sessionStart;
 
 let state: GameState = createGame(seedFromClock(), elapsed());
 let renderedLotIndex = -1;
-let renderedOutcomeCount = 0;
 const lastMarketValues = new Map<string, number>();
 
 function createShapeNode(shape: ArtworkShape, baseColor: string): SVGElement {
@@ -74,6 +93,19 @@ function createShapeNode(shape: ArtworkShape, baseColor: string): SVGElement {
     node.setAttribute("transform", `rotate(${shape.rotation} ${shape.x} ${shape.y})`);
     return node;
   }
+  if (shape.kind === "stroke") {
+    const length = shape.length ?? shape.size;
+    const node = document.createElementNS(SVG_NS, "rect");
+    node.setAttribute("x", String(shape.x - length / 2));
+    node.setAttribute("y", String(shape.y - half));
+    node.setAttribute("width", String(length));
+    node.setAttribute("height", String(shape.size));
+    node.setAttribute("rx", String(half));
+    node.setAttribute("fill", color);
+    node.setAttribute("fill-opacity", String(shape.opacity));
+    node.setAttribute("transform", `rotate(${shape.rotation} ${shape.x} ${shape.y})`);
+    return node;
+  }
   const node = document.createElementNS(SVG_NS, "polygon");
   const points = [
     [shape.x, shape.y - half],
@@ -94,6 +126,7 @@ function renderArtwork(lot: GameState["currentLot"]) {
   if (!lot) return;
   const artist = ARTISTS.find((a) => a.id === lot.artistId)!;
   els.artworkButton.style.setProperty("--stage-bg", lot.artwork.background);
+  els.artworkButton.style.setProperty("--artist-color", artist.color);
   const bg = document.createElementNS(SVG_NS, "rect");
   bg.setAttribute("x", "0");
   bg.setAttribute("y", "0");
@@ -106,6 +139,18 @@ function renderArtwork(lot: GameState["currentLot"]) {
   }
 }
 
+function renderLotCaption(lot: GameState["currentLot"]) {
+  if (!lot) {
+    els.lotCaption.hidden = true;
+    return;
+  }
+  const artist = ARTISTS.find((a) => a.id === lot.artistId)!;
+  els.lotCaption.hidden = false;
+  els.lotCaption.style.setProperty("--artist-color", artist.color);
+  els.artistSwatch.className = `swatch swatch-${artist.symbol}`;
+  els.artistName.textContent = artist.name;
+}
+
 function renderMarketBoard() {
   els.marketBoard.replaceChildren();
   for (const artist of ARTISTS) {
@@ -113,7 +158,9 @@ function renderMarketBoard() {
     const previous = lastMarketValues.get(artist.id);
     const chip = document.createElement("span");
     chip.className = "market-chip";
+    chip.title = artist.name;
     if (previous !== undefined && value > previous) chip.classList.add("market-chip-up");
+    if (previous !== undefined && value < previous) chip.classList.add("market-chip-down");
     chip.style.setProperty("--artist-color", artist.color);
 
     const swatch = document.createElement("span");
@@ -154,20 +201,78 @@ function renderCollection() {
   }
 }
 
-function renderBidders(relativeMs: number) {
+function renderNetWorth() {
+  const player = state.collectors.player;
+  const collectionValue = portfolioValue(player.holdings, state.market);
+  const netWorth = player.cash + collectionValue;
+  els.netWorthFormula.textContent = `$${netWorth} = $${player.cash} + $${collectionValue}`;
+}
+
+// The only place rival finances are ever read from is this public view: it
+// structurally omits rival cash/net worth until the game finishes, so this
+// function has nothing to accidentally leak even if it tried.
+function renderRivalsBoard() {
+  const view = buildPublicView(state);
+  els.rivalsBoard.replaceChildren();
+  for (const entry of view.collectors) {
+    if (entry.id === "player") continue;
+    const row = document.createElement("div");
+    row.className = "rival-row";
+
+    const name = document.createElement("span");
+    name.className = "rival-name";
+    name.textContent = entry.name;
+    row.appendChild(name);
+
+    const holdingsWrap = document.createElement("span");
+    holdingsWrap.className = "rival-holdings";
+    for (const artist of ARTISTS) {
+      const count = entry.holdings[artist.id] ?? 0;
+      const tile = document.createElement("span");
+      tile.className = "rival-tile";
+      tile.style.setProperty("--artist-color", artist.color);
+      const swatch = document.createElement("span");
+      swatch.className = `swatch swatch-${artist.symbol}`;
+      tile.appendChild(swatch);
+      const countEl = document.createElement("span");
+      countEl.textContent = String(count);
+      tile.appendChild(countEl);
+      holdingsWrap.appendChild(tile);
+    }
+    row.appendChild(holdingsWrap);
+    els.rivalsBoard.appendChild(row);
+  }
+}
+
+function renderClaimTracks(relativeMs: number) {
   for (const npcId of NPC_IDS) {
-    const el = bidderEls[npcId];
+    const trackEl = trackEls[npcId];
+    const railEl = railEls[npcId];
     const triggerMs = state.npcTriggers[npcId];
     if (triggerMs == null) {
-      el.style.setProperty("--progress", "0");
-      el.classList.add("bidder-sitting-out");
+      trackEl.style.setProperty("--progress", "0");
+      trackEl.classList.add("claim-track-sitting-out");
+      trackEl.classList.remove("claim-track-arrived");
+      railEl.classList.add("claim-rail-inactive");
       continue;
     }
-    el.classList.remove("bidder-sitting-out");
+    trackEl.classList.remove("claim-track-sitting-out");
+    railEl.classList.remove("claim-rail-inactive");
     const progress = Math.max(0, Math.min(1, relativeMs / Math.max(1, triggerMs)));
-    el.style.setProperty("--progress", String(progress));
-    el.classList.toggle("bidder-arrived", progress >= 1);
+    trackEl.style.setProperty("--progress", String(progress));
+    trackEl.classList.toggle("claim-track-arrived", progress >= 1);
   }
+}
+
+function outcomeTagText(kind: LotOutcome["saleKind"]): string {
+  if (kind === "premium") return "PREMIUM +15";
+  if (kind === "discount") return "DISCOUNT −5";
+  return "UNSOLD −15";
+}
+
+function soldBannerText(outcome: LotOutcome): string {
+  if (outcome.winner === null) return "UNSOLD";
+  return `SOLD TO ${COLLECTOR_LABELS[outcome.winner]} · $${outcome.price}`;
 }
 
 function renderEndScreen() {
@@ -180,14 +285,27 @@ function renderEndScreen() {
     const item = document.createElement("li");
     item.className = "ranking-item";
     if (entry.id === "player") item.classList.add("ranking-item-player");
-    item.textContent = `${entry.rank}. ${entry.name} — $${entry.wealth}`;
+
+    const label = document.createElement("span");
+    label.textContent = `${entry.rank}. ${entry.name}`;
+    item.appendChild(label);
+
+    const detail = document.createElement("span");
+    detail.className = "ranking-detail";
+    detail.textContent = `$${entry.wealth} = $${entry.cash} + $${entry.portfolioValue}`;
+    item.appendChild(detail);
+
     els.rankingList.appendChild(item);
   }
   els.endScreen.hidden = false;
   els.stage.hidden = true;
+  els.lotCaption.hidden = true;
 }
 
 function render() {
+  renderNetWorth();
+  renderRivalsBoard();
+
   els.cash.textContent = `$${state.collectors.player.cash}`;
   els.lotCounter.textContent = `${Math.min(state.currentLotIndex + 1, LOT_COUNT)} / ${LOT_COUNT}`;
   renderMarketBoard();
@@ -204,6 +322,7 @@ function render() {
   const lot = state.currentLot;
   if (lot && lot.index !== renderedLotIndex) {
     renderArtwork(lot);
+    renderLotCaption(lot);
     renderedLotIndex = lot.index;
   }
 
@@ -211,30 +330,26 @@ function render() {
 
   if (state.phase === "auction" && lot) {
     els.soldBanner.hidden = true;
+    els.outcomeTag.hidden = true;
     els.artworkButton.disabled = false;
     els.artworkButton.classList.remove("artwork-sold");
     const price = priceAtTime(lot, relativeMs);
     els.priceTag.textContent = `$${Math.round(price)}`;
-    renderBidders(relativeMs);
+    renderClaimTracks(relativeMs);
   } else if (state.phase === "sold-pause") {
     els.artworkButton.disabled = true;
     els.artworkButton.classList.add("artwork-sold");
-    if (state.outcomes.length !== renderedOutcomeCount) {
-      renderedOutcomeCount = state.outcomes.length;
-    }
     const outcome = state.outcomes[state.outcomes.length - 1];
     if (outcome) {
-      const name =
-        outcome.winner === null
-          ? "PASSED"
-          : outcome.winner === "player"
-            ? "SOLD — You"
-            : `SOLD — ${NPC_NAMES[outcome.winner]}`;
-      els.soldBanner.textContent = outcome.winner === null ? name : `${name} $${outcome.price}`;
+      els.soldBanner.textContent = soldBannerText(outcome);
+      els.soldBanner.hidden = false;
       els.priceTag.textContent = outcome.winner === null ? "—" : `$${outcome.price}`;
+
+      els.outcomeTag.textContent = outcomeTagText(outcome.saleKind);
+      els.outcomeTag.className = `outcome-tag outcome-tag-${outcome.saleKind}`;
+      els.outcomeTag.hidden = false;
     }
-    els.soldBanner.hidden = false;
-    renderBidders(lot ? lot.durationMs : 0);
+    renderClaimTracks(lot ? lot.durationMs : 0);
   }
 }
 
@@ -252,7 +367,6 @@ els.artworkButton.addEventListener("click", () => {
 els.playAgain.addEventListener("click", () => {
   state = createGame(seedFromClock(), elapsed());
   renderedLotIndex = -1;
-  renderedOutcomeCount = 0;
   lastMarketValues.clear();
   render();
 });

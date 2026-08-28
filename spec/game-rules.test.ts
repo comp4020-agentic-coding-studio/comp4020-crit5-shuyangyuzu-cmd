@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { attemptPlayerClaim, computeResults, createGame, isPlayerWinner, tick, type GameState } from "../src/game/engine";
 import { createMarket, resolveSale, resolveUnsold } from "../src/game/market";
 import { COLLECTOR_IDS } from "../src/game/types";
+import { buildPublicView } from "../src/game/view";
 
 // This week's contract tests answer the C5 playtest revision: outcome-driven
 // market movement replaces the old fixed growth rate, and there is no forced
@@ -117,6 +118,50 @@ describe("final net worth", () => {
 
     expect(player.wealth).toBe(200 + 2 * 120);
     expect(valueCollector.wealth).toBe(50 + 150 + 90);
+  });
+});
+
+describe("rival financial privacy", () => {
+  it("hides rival cash and net worth during play, and reveals every collector's once the game finishes", () => {
+    let state: GameState = createGame(11);
+    let elapsedMs = 0;
+    let checkedMidGame = false;
+
+    while (state.phase !== "finished") {
+      elapsedMs += 250;
+      state = tick(state, elapsedMs);
+
+      if (!checkedMidGame && state.outcomes.length > 0 && state.phase !== "finished") {
+        checkedMidGame = true;
+        const view = buildPublicView(state);
+        expect(view.finished).toBe(false);
+
+        const player = view.collectors.find((c) => c.id === "player")!;
+        expect(player.cash).toBeDefined();
+        expect(player.collectionValue).toBeDefined();
+        expect(player.netWorth).toBeDefined();
+
+        for (const id of COLLECTOR_IDS) {
+          if (id === "player") continue;
+          const rival = view.collectors.find((c) => c.id === id)!;
+          expect(rival.holdings).toBeDefined();
+          expect("cash" in rival).toBe(false);
+          expect("collectionValue" in rival).toBe(false);
+          expect("netWorth" in rival).toBe(false);
+        }
+      }
+    }
+
+    expect(checkedMidGame).toBe(true);
+
+    const finalView = buildPublicView(state);
+    expect(finalView.finished).toBe(true);
+    for (const id of COLLECTOR_IDS) {
+      const collector = finalView.collectors.find((c) => c.id === id)!;
+      expect(collector.cash).toBeDefined();
+      expect(collector.collectionValue).toBeDefined();
+      expect(collector.netWorth).toBeDefined();
+    }
   });
 });
 
