@@ -859,12 +859,16 @@ body {
   color: var(--ink-soft);
 }
 
+/* Ledger layout correction: the ledger used to render one card per acquired
+   artwork, so the panel grew taller for every purchase and destabilised the
+   desktop layout. It now always renders exactly four tiles — one per artist,
+   in a fixed order, zero counts included — mirroring the compact swatch+count
+   style already used for NPC holdings (.collector-tile), so the ledger's
+   height never changes across a game. */
 .collection {
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  justify-content: flex-start;
+  flex-direction: column;
+  gap: 0.35rem;
   min-height: 1.6rem;
 }
 
@@ -872,16 +876,26 @@ body {
   margin-right: 0.2rem;
 }
 
-/* Ledger layout correction: the ledger used to render one card per acquired
-   artwork, so the panel grew taller for every purchase and destabilised the
-   desktop layout. It now always renders exactly four tiles — one per artist,
-   in a fixed order, zero counts included — mirroring the compact swatch+count
-   style already used for NPC holdings (.collector-tile), so the ledger's
-   height never changes across a game. */
+/* Responsive layout correction: the four tiles used to sit in the same
+   flex-wrap row as the label, which let them wrap onto a second row once
+   the label plus four swatch+count pairs no longer fit one line. They now
+   live in their own fixed four-column grid, one artist per column, so they
+   can never wrap regardless of viewport width or digit count — a column can
+   only shrink (minmax(0, 1fr)), never overflow onto another row. */
+.collection-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
 .collection-tile {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  justify-content: center;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 0.85rem;

@@ -409,12 +409,20 @@ function renderMarketBoard() {
 // ledger's height — never changes. acquiredLots itself is untouched by this:
 // it still carries the exact artist/title identity read by the current lot
 // caption, the sold banner and the AUCTIONEER hand cards.
+//
+// The four tiles live in their own grid wrapper (.collection-tiles), separate
+// from the COLLECTION label, so the label can stay on its own row while the
+// tiles are pinned to a fixed four-column grid (see global.css) that can
+// never wrap onto a second row regardless of viewport width or digit count.
 function renderCollection() {
   els.collectionBoard.replaceChildren();
   const label = document.createElement("span");
   label.className = "hud-label collection-label";
   label.textContent = "COLLECTION";
   els.collectionBoard.appendChild(label);
+
+  const tiles = document.createElement("div");
+  tiles.className = "collection-tiles";
 
   const player = state.collectors.player;
   for (const artist of ARTISTS) {
@@ -435,8 +443,10 @@ function renderCollection() {
     countEl.textContent = `×${count}`;
     tile.appendChild(countEl);
 
-    els.collectionBoard.appendChild(tile);
+    tiles.appendChild(tile);
   }
+
+  els.collectionBoard.appendChild(tiles);
 }
 
 function renderNetWorth() {

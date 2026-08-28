@@ -107,7 +107,10 @@ async function playToFinished(mode: "house" | "auctioneer") {
   const endScreen = document.getElementById("end-screen")!;
   const selectingPanel = document.getElementById("selecting-panel")!;
 
-  let maxCollectionChildren = collectionBoard.children.length;
+  // The label and the four-column tile grid are separate elements (see
+  // .collection-tiles in global.css), so "never grows" is checked on the
+  // tile count itself rather than collectionBoard's direct child count.
+  let maxTileCount = collectionBoard.querySelectorAll(".collection-tile").length;
   let sawSelecting = false;
 
   // Worst case is every one of the 12 lots timing out unsold (full
@@ -121,10 +124,10 @@ async function playToFinished(mode: "house" | "auctioneer") {
     }
     now += 250;
     frame.callback?.(now);
-    maxCollectionChildren = Math.max(maxCollectionChildren, collectionBoard.children.length);
+    maxTileCount = Math.max(maxTileCount, collectionBoard.querySelectorAll(".collection-tile").length);
   }
 
-  return { collectionBoard, maxCollectionChildren, sawSelecting };
+  return { collectionBoard, maxTileCount, sawSelecting };
 }
 
 describe.each([["house"], ["auctioneer"]] as const)("a full %s-mode game reaches the finished phase", (mode) => {
@@ -157,16 +160,29 @@ describe.each([["house"], ["auctioneer"]] as const)("a full %s-mode game reaches
     // Checked on the very first render, before any lot has been won, so this
     // does not depend on the random seed producing a player acquisition.
     await playToFinished(mode);
-    const tiles = Array.from(document.getElementById("collection-board")!.children).slice(1);
+    const tiles = Array.from(document.getElementById("collection-board")!.querySelectorAll(".collection-tile"));
     expect(tiles).toHaveLength(ARTISTS.length);
     tiles.forEach((tile, i) => {
       expect(tile.getAttribute("aria-label")).toContain(ARTISTS[i].name);
     });
   });
 
-  it("never grows the ledger's collection board past one label + four tiles across a whole game", async () => {
-    const { maxCollectionChildren } = await playToFinished(mode);
-    expect(maxCollectionChildren).toBe(1 + ARTISTS.length);
+  it("never grows the ledger's collection board past its fixed four tiles across a whole game", async () => {
+    const { maxTileCount } = await playToFinished(mode);
+    expect(maxTileCount).toBe(ARTISTS.length);
+  });
+
+  // The COLLECTION label must stay on its own row, with the four artist
+  // tiles underneath it in one fixed four-column grid row (see
+  // .collection-tiles in global.css) — never wrapped across rows.
+  it("keeps the label separate from a single four-column tile grid", async () => {
+    await playToFinished(mode);
+    const board = document.getElementById("collection-board")!;
+    expect(board.querySelector(".collection-label")).not.toBeNull();
+    const tileGrids = board.querySelectorAll(".collection-tiles");
+    expect(tileGrids).toHaveLength(1);
+    expect(tileGrids[0]!.children).toHaveLength(ARTISTS.length);
+    expect(tileGrids[0]!.querySelector(".collection-label")).toBeNull();
   });
 
   it("hides the COLLECTORS panel and NPC dock, and drops the panel-rivals grid row, once finished", async () => {
