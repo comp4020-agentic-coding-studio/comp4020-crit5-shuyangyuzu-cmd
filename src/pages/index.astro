@@ -1,14 +1,15 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { APP_TITLE } from "../branding";
 ---
 
 <Layout
-  title="GOING, GOING&hellip;"
+  title={APP_TITLE}
   description="A live-nerve art auction. Twelve lots, four collectors, one falling price."
 >
   <header class="topbar">
     <nav aria-label="Primary">
-      <a href="./" class="wordmark">GOING, GOING&hellip;</a>
+      <a href="./" class="wordmark">{APP_TITLE}</a>
       <div class="mode-switch" role="group" aria-label="Game mode">
         <button type="button" id="mode-house" class="mode-button" aria-pressed="true">HOUSE</button>
         <button type="button" id="mode-auctioneer" class="mode-button" aria-pressed="false">AUCTIONEER</button>
@@ -17,7 +18,7 @@ import Layout from "../layouts/Layout.astro";
   </header>
   <main id="app">
     <div id="ready-screen" class="ready-screen">
-      <h1 class="ready-title">GOING, GOING&hellip;</h1>
+      <h1 class="ready-title">{APP_TITLE}</h1>
       <div class="ready-frame">
         <canvas
           id="ready-artwork-canvas"
