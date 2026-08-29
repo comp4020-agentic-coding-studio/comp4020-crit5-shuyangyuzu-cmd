@@ -1,6 +1,6 @@
 # Process overview
 
-A reading-guide to how "GOING, GOING&hellip;" — a Dutch-auction card game about
+A reading-guide to how "GOING, GOING…" — a Dutch-auction card game about
 four historical painters — actually came together.
 
 ## What I built
@@ -138,3 +138,29 @@ their own hand.
    alone; the exact pixel width of the four-column tile row, by contrast, was
    only checked by hand against the CSS values, since this project has no
    browser automation to confirm rendered dimensions directly.
+
+6. **Repeated completed-game playtesting showed one NPC couldn't get into the
+   market at all, and the fix needed evidence before I trusted it.**
+   Across several full games I kept seeing the same pattern: Celeste Moreau
+   rarely participated, consistently triggered later than Vivienne Hart or
+   Julian Vale when she did, and usually only won a lot when both of them had
+   already declined it. Reading `src/game/npc.ts` against that observation
+   found the cause: her zero-holding interest and trigger timing were
+   identical whether or not the lot was her preferred artist, so she had no
+   way to start the concentrated collection her personality is meant to
+   build. [`9f7d178`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit5-shuyangyuzu-cmd/commit/9f7d178)
+   gave her a genuine bootstrap on her preferred artist at zero holdings,
+   left her behaviour on any other artist unchanged, and kept the
+   interest/trigger curve monotonic from her first holding onward so there is
+   no regression right after that first purchase. I didn't trust this from
+   the code change alone: a deterministic multi-seed diagnostic
+   (`spec/npc-balance-diagnostic.test.ts`), run before and after, showed the
+   actual before/after change in her participation rate, trigger timing, and
+   zero-win-game rate, alongside focused tests
+   (`spec/npc-celeste.test.ts`) proving the bootstrap, the monotonic
+   concentration, and that she can now be the earliest interested NPC in
+   contested fixed-seed scenarios. A follow-up real-browser playtest of the
+   revised build found the experience acceptable.
+   ([`25d5c44`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit5-shuyangyuzu-cmd/commit/25d5c44)
+   is a small, unrelated branding fix from the same session: the browser tab
+   title used a literal `&hellip;` instead of an actual ellipsis character.)
