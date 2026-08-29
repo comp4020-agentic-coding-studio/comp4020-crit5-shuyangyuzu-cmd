@@ -18,6 +18,24 @@ const PROFILE_WEIGHT = 0.15;
 const LOT_WEIGHT = 0.1;
 const LOT_JITTER_RANGE = 0.05; // ±5%, within the requested ~4-6%
 
+// Celeste Moreau (npc id "momentum"): a concentrated-collection specialist.
+// With zero holdings in a non-preferred artist she stays cautious (unchanged
+// from the original model). With zero holdings in her *preferred* artist,
+// she instead makes a deliberate "conviction entry" attempt — high interest,
+// early trigger — so she has a real shot at winning the first work that
+// starts her concentration strategy, rather than only winning when both
+// rivals decline. From her first holding onward, both artists share one
+// continuous, monotonic concentration curve anchored at the bootstrap
+// values, so there is no cliff-edge regression right after that first win.
+const CELESTE_PREFERRED_BOOTSTRAP_INTEREST = 0.7; // 0 holdings, preferred artist
+const CELESTE_PREFERRED_MAX_INTEREST = 0.85; // >=4 holdings, preferred artist
+const CELESTE_PREFERRED_BOOTSTRAP_FRACTION = 0.22; // 0 holdings, preferred artist
+const CELESTE_PREFERRED_MIN_FRACTION = 0.1; // >=4 holdings, preferred artist
+const CELESTE_BASE_INTEREST = 0.35; // 0 holdings, non-preferred artist (unchanged)
+const CELESTE_MAX_INTEREST = 0.8; // >=4 holdings, non-preferred artist (unchanged)
+const CELESTE_BASE_FRACTION = 0.65; // 0 holdings, non-preferred artist (unchanged)
+const CELESTE_MIN_FRACTION = 0.2; // >=4 holdings, non-preferred artist (unchanged)
+
 export const NPC_NAMES: Record<NpcId, string> = {
   trend: "Vivienne Hart",
   value: "Julian Vale",
@@ -57,7 +75,14 @@ interface CoreDecision {
 
 // The defining rule for each personality, in terms of lot/market state
 // alone. See the file header for how this feeds into the final decision.
-function coreDecision(npcId: NpcId, lot: Lot, market: Market, holdingsCount: number, outcomes: LotOutcome[]): CoreDecision {
+function coreDecision(
+  npcId: NpcId,
+  lot: Lot,
+  market: Market,
+  holdingsCount: number,
+  outcomes: LotOutcome[],
+  profile: NpcSessionProfile,
+): CoreDecision {
   const heat = heatOf(market, lot.artistId);
   const momentum = recentMomentum(outcomes);
 
@@ -84,13 +109,35 @@ function coreDecision(npcId: NpcId, lot: Lot, market: Market, holdingsCount: num
     };
   }
 
-  // Celeste Moreau builds concentrated positions: neutral with no holding
-  // in this artist yet, increasingly willing — including paying closer to
-  // the ceiling — the more of this artist she already owns.
+  // Celeste Moreau builds concentrated positions. Her preferred artist gets
+  // a genuine bootstrap: a strong, early conviction entry at 0 holdings,
+  // strengthening further (never weakening) as she accumulates holdings.
+  // Any other artist she holds none of stays neutral-to-cautious, as before.
   const concentration = Math.min(holdingsCount, 4) / 4;
+  const isPreferred = lot.artistId === profile.preferredArtistId;
+  if (isPreferred) {
+    return {
+      interest: clamp01(
+        CELESTE_PREFERRED_BOOTSTRAP_INTEREST +
+          concentration * (CELESTE_PREFERRED_MAX_INTEREST - CELESTE_PREFERRED_BOOTSTRAP_INTEREST),
+      ),
+      fraction: Math.max(
+        CELESTE_PREFERRED_MIN_FRACTION,
+        Math.min(
+          CELESTE_PREFERRED_BOOTSTRAP_FRACTION,
+          CELESTE_PREFERRED_BOOTSTRAP_FRACTION -
+            concentration * (CELESTE_PREFERRED_BOOTSTRAP_FRACTION - CELESTE_PREFERRED_MIN_FRACTION),
+        ),
+      ),
+    };
+  }
+
   return {
-    interest: clamp01(0.35 + concentration * 0.45),
-    fraction: Math.max(0.05, Math.min(0.85, 0.65 - concentration * 0.45)),
+    interest: clamp01(CELESTE_BASE_INTEREST + concentration * (CELESTE_MAX_INTEREST - CELESTE_BASE_INTEREST)),
+    fraction: Math.max(
+      CELESTE_MIN_FRACTION,
+      Math.min(CELESTE_BASE_FRACTION, CELESTE_BASE_FRACTION - concentration * (CELESTE_BASE_FRACTION - CELESTE_MIN_FRACTION)),
+    ),
   };
 }
 
@@ -126,7 +173,7 @@ export function computeNpcTrigger(
   outcomes: LotOutcome[],
   state: RngState,
 ): { value: number | null; state: RngState } {
-  const core = coreDecision(npcId, lot, market, holdingsCount, outcomes);
+  const core = coreDecision(npcId, lot, market, holdingsCount, outcomes, profile);
   const withProfile = profileSkew(npcId, lot, market, profile);
 
   const jitterRoll = nextRange(state, -LOT_JITTER_RANGE, LOT_JITTER_RANGE);
